@@ -4,7 +4,8 @@
 > **Where it is implemented:** in the API repo (`../VivaAerobus.Generic.Api`), branch from
 > `master`. System code is never written in this repo nor in the ApiLLM.
 > **MANDATORY support in the LLM repo:**
-> - `guidelines/**` (`STY`/`ARC`/`ROB`/`PRC`) — **normative**: it is the bar applied by the human
+> - `guidelines/**` (`STY`/`ARC`/`ROB`/`PRC`) — **normative (GOLDEN RULE, `../CLAUDE.md`
+>   rule 4)**: it is the bar applied by the human
 >   reviewers and by the Phase 9 gate.
 > - `documents/architecture/conventions.md` + `patterns-cqrs.md` — where each piece goes (thin
 >   controller, handler per feature, builders, registered validators).

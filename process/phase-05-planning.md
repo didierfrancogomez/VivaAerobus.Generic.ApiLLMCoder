@@ -7,7 +7,8 @@
 >   facts in the code, plan with citations, where each piece goes
 >   (`documents/architecture/conventions.md`, `patterns-cqrs.md`), new error codes (never
 >   reuse — `documents/cross-module/error-codes.md`), kill switch.
-> - `guidelines/README.md` + categories `STY`/`ARC`/`ROB`/`PRC` — **normative**: the plan cites the
+> - `guidelines/README.md` + categories `STY`/`ARC`/`ROB`/`PRC` — **normative (GOLDEN RULE,
+>   `../CLAUDE.md` rule 4)**: the plan cites the
 >   rule IDs it must honor; a plan that violates a 🐛/❗ rule is not ready.
 > - `documents/operations/testing.md` — where coverage exists and where it doesn't; **where there
 >   are no tests, writing them is part of this change's scope, not optional**.

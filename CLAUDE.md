@@ -9,7 +9,7 @@
 
 ---
 
-## ⚠️ NON-NEGOTIABLE — The three rules that never break
+## ⚠️ NON-NEGOTIABLE — The four rules that never break
 
 1. **Analysis before code, always.** Phases 0–4 are completed BEFORE writing a single line. The
    Phase 4 gate decides: open hard blockers → **STOP and ask**; verdict ✅ and zero blockers →
@@ -23,6 +23,15 @@
    §"NON-NEGOTIABLE — Evidence first": never assume, never infer from names, every claim is cited
    against the code (`path/File.cs :: Symbol`), the unknown is written as `unknown`, and every
    ambiguity is a **blocking question**, never a unilateral decision.
+4. **GOLDEN RULE — the LLM repo's guidelines govern HOW code is implemented.** The technical
+   specification of how code MUST be written lives in
+   `../VivaAerobus.Generic.ApiLLM/guidelines/**` (the 90 normative `STY`/`ARC`/`ROB`/`PRC` rules
+   from real PR reviews) plus `documents/architecture/conventions.md` and `patterns-cqrs.md`. The
+   Coder **never invents its own standard** and never contradicts those rules: every plan
+   (Phase 5) cites the rule IDs it must honor, the implementation (Phase 6) complies with them,
+   and the Phase 9 gate (`llm/REVIEW-CODE.md`) applies that same bar — a 🐛/❗ finding blocks. If
+   a guideline seems wrong or outdated, that is a finding for the ApiLLM owner, not a license to
+   deviate.
 
 ---
 
