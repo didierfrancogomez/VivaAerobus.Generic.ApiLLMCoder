@@ -28,11 +28,35 @@ WORK_DIR="$CODER_ROOT/work"
 
 # The code repo is a sibling folder. Note: its name is a prefix of this repo's
 # name and of the ApiLLM repo's name — match it exactly, never by substring.
-CODE_REPO="$(cd "$CODER_ROOT/.." 2>/dev/null && pwd)/VivaAerobus.Generic.Api"
+# CODER_GATE_CODE_REPO overrides the default sibling layout (also used by the
+# hook test suite).
+CODE_REPO="${CODER_GATE_CODE_REPO:-$(cd "$CODER_ROOT/.." 2>/dev/null && pwd)/VivaAerobus.Generic.Api}"
 
 gate_active_key() {
   [ -f "$WORK_DIR/_active" ] || return 1
   head -1 "$WORK_DIR/_active" | tr -d '[:space:]'
+}
+
+# Resolves WHICH task a code-repo mutation belongs to. The branch checked out
+# in the code repo is authoritative: branch names follow
+# type/KEY-123-short-desc (phase-06 §6.1), so the Jira key in the branch binds
+# the working branch to its plan — that is what makes several plans safe in
+# parallel (each plan on its own branch, each branch gated by its own
+# work/<KEY>/ artifacts). Fallback: work/_active (no branch checked out yet,
+# detached HEAD, or a branch without a parseable key — e.g. master).
+# Prints "KEY<TAB>source"; source is "branch:<name>" or "_active".
+gate_task_key() {
+  BR="$(git -C "$CODE_REPO" branch --show-current 2>/dev/null || true)"
+  if [ -n "$BR" ]; then
+    K="$(printf '%s' "$BR" | grep -oE '[A-Za-z][A-Za-z0-9]*-[0-9]+' | head -1 | tr '[:lower:]' '[:upper:]')"
+    if [ -n "$K" ]; then
+      printf '%s\tbranch:%s\n' "$K" "$BR"
+      return 0
+    fi
+  fi
+  K="$(gate_active_key)" || return 1
+  [ -n "$K" ] || return 1
+  printf '%s\t_active\n' "$K"
 }
 
 # Prints the missing analysis artifacts (phases 0-5) for a task key, one per

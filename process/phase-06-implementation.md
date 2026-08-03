@@ -16,7 +16,10 @@
 ## 6.1 Environment preparation
 
 1. Update the base branch (`master`) and create the branch following the team's convention:
-   `type/KEY-123-short-description`.
+   `type/KEY-123-short-description`. ⚠️ The Jira key in the branch name is **load-bearing**: the
+   enforcement hooks resolve which task a code change belongs to from the checked-out branch and
+   validate it against `work/KEY-123/` — that is what lets several plans run in parallel, each on
+   its own branch. A branch whose key has no analysis artifacts gets its writes denied.
 2. Install dependencies, run migrations, seed data, **verify that the test suite passes green
    BEFORE touching anything**. If it is already red, that is a pre-existing finding (do not
    inherit it silently). Local setup: `documents/operations/local-setup.md` in the LLM repo.

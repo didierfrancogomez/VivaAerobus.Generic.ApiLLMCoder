@@ -59,14 +59,15 @@ if printf '%s' "$CMD" | grep -Eiq ">>?[^;&|<]*$CODE_RE" || \
 fi
 [ "$MUTATES" = "1" ] || [ "$PUBLISHES" = "1" ] || exit 0
 
-KEY="$(gate_active_key || echo "")"
-if [ -z "$KEY" ]; then
-  gate_deny "⛔ PIPELINE GATE: this command mutates the API repo and there is no active task (work/_active). Complete phases 0-5 first (process/). See CLAUDE.md §Enforcement."
+RES="$(gate_task_key || echo "")"
+if [ -z "$RES" ]; then
+  gate_deny "⛔ PIPELINE GATE: this command mutates the API repo and no task can be resolved (no Jira key in the code-repo branch, no work/_active). Complete phases 0-5 first (process/). See CLAUDE.md §Enforcement."
 fi
+KEY="${RES%%$'\t'*}"; SRC="${RES#*$'\t'}"
 
 MISSING="$(gate_missing_analysis "$KEY")"
 if [ -n "$MISSING" ]; then
-  gate_deny "$(gate_deny_message "$KEY" "$MISSING" "mutate the API repo via Bash")"
+  gate_deny "$(gate_deny_message "$KEY" "$MISSING" "mutate the API repo via Bash") [task resolved from ${SRC}]"
 fi
 
 if [ "$PUBLISHES" = "1" ]; then

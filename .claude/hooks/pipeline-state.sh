@@ -14,8 +14,12 @@ if [ ! -d "$WORK_DIR" ] || [ -z "$(ls -A "$WORK_DIR" 2>/dev/null | grep -v '^_ac
   exit 0
 fi
 
-ACTIVE="$(gate_active_key || echo "")"
-[ -n "$ACTIVE" ] && echo "- Active task (work/_active): $ACTIVE" || echo "- ⚠️ work/_active does not exist — the gate will deny code writes until it is set."
+RES="$(gate_task_key || echo "")"
+if [ -n "$RES" ]; then
+  echo "- Gate resolves to task ${RES%%$'\t'*} (from ${RES#*$'\t'}). Code writes are validated against that task's artifacts — parallel plans each live on their own type/KEY-123-desc branch."
+else
+  echo "- ⚠️ No resolvable task (no Jira key in the code-repo branch, no work/_active) — the gate will deny code writes until one is set."
+fi
 
 for DIR in "$WORK_DIR"/*/; do
   [ -d "$DIR" ] || continue

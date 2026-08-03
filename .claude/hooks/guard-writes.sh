@@ -65,13 +65,14 @@ case "$(classify)" in
   HUMANGATE)
     gate_deny "⛔ FORBIDDEN: HUMAN-GATE-OK is the human's signature. The agent never creates it — ask the user to run: touch work/<KEY>/HUMAN-GATE-OK once they have reviewed the plan." ;;
   CODE)
-    KEY="$(gate_active_key || echo "")"
-    if [ -z "$KEY" ]; then
-      gate_deny "⛔ PIPELINE GATE: no active task (work/_active does not exist). Before touching the API repo: create work/<KEY>/, write the key into work/_active and complete phases 0-5 (process/). See CLAUDE.md §Enforcement."
+    RES="$(gate_task_key || echo "")"
+    if [ -z "$RES" ]; then
+      gate_deny "⛔ PIPELINE GATE: cannot resolve a task for this write — the code-repo branch has no Jira key and work/_active does not exist. Before touching the API repo: create work/<KEY>/, write the key into work/_active (or check out a type/KEY-123-desc branch) and complete phases 0-5 (process/). See CLAUDE.md §Enforcement."
     fi
+    KEY="${RES%%$'\t'*}"; SRC="${RES#*$'\t'}"
     MISSING="$(gate_missing_analysis "$KEY")"
     if [ -n "$MISSING" ]; then
-      gate_deny "$(gate_deny_message "$KEY" "$MISSING" "write code in the API repo")"
+      gate_deny "$(gate_deny_message "$KEY" "$MISSING" "write code in the API repo") [task resolved from ${SRC}]"
     fi
     exit 0 ;;
 esac

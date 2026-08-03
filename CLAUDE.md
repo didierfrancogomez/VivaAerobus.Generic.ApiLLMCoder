@@ -125,7 +125,7 @@ these files **mechanically** — until they exist, every write to the API repo i
 
 | Artifact (in `work/<KEY>/`) | Produced by | Unlocks |
 |---|---|---|
-| `../_active` (contains the KEY) | Phase 0 | identifies the active task |
+| `../_active` (contains the KEY) | Phase 0 | fallback task identity (see resolution rule below) |
 | `phase-00-intake.md` | Phase 0 | — |
 | `phase-01-contrast.md` | Phase 1 | — |
 | `phase-02-impact-matrix.md` | Phase 2 | — |
@@ -134,6 +134,14 @@ these files **mechanically** — until they exist, every write to the API repo i
 | `phase-05-plan.md` | Phase 5 | **writes to the API repo** (together with everything above and verdict ✅) |
 | `phase-09-pre-review.md` with the line `REVIEW-CODE: APPROVED` | Phase 9 | **`git push` / `gh pr create`** |
 | `HUMAN-GATE-REQUIRED` (*risky* level) → `HUMAN-GATE-OK` | human | the human creates it by hand (`touch`); **the agent is forbidden from creating it** |
+
+**Task resolution — multiple plans in parallel.** The gate decides *which* task a code-repo
+mutation belongs to by reading the **branch checked out in the code repo**: branch names follow
+`type/KEY-123-short-desc` (Phase 6.1), and the Jira key in the branch binds that branch to
+`work/KEY-123/`. Each plan therefore lives on its own branch and is gated by its own artifacts —
+several plans can be in flight at once without touching `_active`. `work/_active` is the
+**fallback** when the branch carries no parseable key (analysis stage, `master`, detached HEAD).
+Work folders are named with the uppercase Jira key.
 
 Integrity rules: artifacts are written **upon completing the phase's work, never before** —
 writing the marker without doing the work is falsifying the gate. A `⚠️`/`⛔` verdict in
