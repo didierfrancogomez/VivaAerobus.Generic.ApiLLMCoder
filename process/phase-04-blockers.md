@@ -3,7 +3,7 @@
 > **Question it answers:** what can I not decide on my own?
 > **This phase IS the pipeline's gate** (`../CLAUDE.md`): here it is decided whether the agent
 > **stops** or **continues to implementation**.
-> **Support in the LLM repo:** question and verdict rules from `llm/ANALYZE-TASK.md` §Phase 5
+> **Support in the LLM repo:** question and verdict rules from `process/ANALYZE-TASK.md` §Phase 5
 > ("you may recommend, but never resolve"; separate business questions from our own verification
 > tasks; prioritize; every question with its why; group by owner; few and good).
 
@@ -12,7 +12,7 @@ assumption. Never into a silent guess.
 
 ## 4.0 Gate rule (mandatory, no exceptions)
 
-When this phase closes, an **explicit verdict** is issued (same format as `llm/ANALYZE-TASK.md`):
+When this phase closes, an **explicit verdict** is issued (same format as `process/ANALYZE-TASK.md`):
 
 | Verdict | Meaning | Agent's action |
 |---|---|---|
@@ -107,9 +107,10 @@ verification. **An assumption without validation is a scheduled bug.**
 
 ---
 
-**Artifacts:** `work/<KEY>/phase-04-verdict.md` — MUST contain the literal line
-`VERDICT: ✅` / `VERDICT: ⚠️` / `VERDICT: ⛔` (the hooks read it), plus the blocking questions
-and the assumption table. The questions also go into the ticket. ⚠️ The verdict is written
+**Artifacts:** `work/<KEY>/phase-04-verdict.md` — MUST contain **exactly one** line starting at
+column 0 with `VERDICT: ` — `VERDICT: ✅` / `VERDICT: ⚠️` / `VERDICT: ⛔` (the hooks match it
+anchored and reject the file if there are zero or several; an indented or quoted copy does not
+count), plus the blocking questions and the assumption table. The questions also go into the ticket. ⚠️ The verdict is written
 **upon finishing the real analysis**, never before: recording ✅ without having closed the
 blockers is falsifying the gate.
 

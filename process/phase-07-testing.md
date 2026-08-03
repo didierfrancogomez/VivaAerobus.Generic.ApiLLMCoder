@@ -8,7 +8,30 @@
 > "testable" is not an assumption, it is verified.
 
 **Objective:** demonstrate that the new work functions **and** that nothing in the impact radius
-broke. Phase 2 defines exactly what must be tested here — it is the same list.
+broke. Phase 2 defines exactly what must be tested here — it is the same list, and the plan's
+**numbered `S-NN` scenarios (Phase 5) are the mandatory coverage matrix**: every row gets
+executed or a written justification of non-applicability; a missing row is a gap.
+
+## 7.0 GenericApi test ladder — validate the run first, then climb
+
+The environment is proven **in this order** (each step invalidates the next when skipped);
+specifics in the LLM repo's `llm/testing-scripts.md`:
+
+1. **Build**: `dotnet build … -c Release` → 0 errors. 2. **API answers** locally.
+   3. **Swagger renders** (routing/startup finished — eyeball the changed contract there).
+4. **Seed config when the ticket touches an Admin config part**: the local seeder is
+   create-only — apply the value with `docker\seed-marten-document.ps1 … -FlushRedis` **and
+   restart the API** (two cache layers; L1 is in-process). A config change that skips this looks
+   "not applied" and poisons every later result.
+5. **Happy-path smoke** (`scripts\run-happy-path-smoke-tests.ps1`): a broken baseline makes every
+   later failure ambiguous.
+
+Then the ladder: **xUnit first** — a matrix row marked `[Automated]` requires an xUnit test **in
+the PR** (a PS1 runner or Postman collection does not satisfy it) → **PS1 runner**
+(`run-api-<ticket>-<slug>-tests.ps1`, iterate to green) → **Postman collection + newman run**
+(built only after PS1 is green; `docs/Postman/**` is tracked — **no credentials in it**) →
+**prove causation**: run the case on the base commit too; evidence pairs are `Issue`(base)/
+`Solution`(branch) per PRC-104.
 
 ## 7.1 Test levels
 
@@ -85,7 +108,14 @@ broke. Phase 2 defines exactly what must be tested here — it is the same list.
 ---
 
 **Artifacts:** automated tests, evidence of manual testing, notes for QA, performance/migration
-results.
+results, and `work/<KEY>/phase-07-testing.md` (skeleton:
+`process/_templates/validation-report.md`) — it MUST contain the literal line `TESTS: GREEN`
+at column 0 (the hooks read it: without it, `git push` / `gh pr create` stay blocked), followed by
+the evidence: the full-suite run output (command + summary), the **numbered scenario matrix**
+(`S-NN → test executed → result`, every plan row present), and the impact-radius regression
+notes. ⚠️ The line is written **only after the FULL suite actually ran green** — recording it
+without running the suite is falsifying the gate. On rework, `tools/new-run.sh <KEY>` archived
+the previous artifact into `validation/run-NNN/` — never edit an archived run.
 
 **Exit criterion:** all acceptance criteria verified with evidence, impact radius tested, CI
 green, zero open high-severity defects.

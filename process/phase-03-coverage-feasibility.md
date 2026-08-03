@@ -1,7 +1,7 @@
 # Phase 3 — Do the ticket and its siblings cover the impact radius? Is it feasible?
 
 > **Question it answers:** do the ticket (and its siblings) cover everything? is it feasible?
-> **Support from the LLM repo:** `llm/ANALYZE-TASK.md` §Phase 4 (implementation risk and safety:
+> **Support from the LLM repo:** `process/ANALYZE-TASK.md` §Phase 4 (implementation risk and safety:
 > transactional integrity, concurrency, idempotency, test net, reversibility, observability,
 > deployment scope, data migration, build traps, size) — those criteria feed directly into the
 > feasibility determination of 3.4.

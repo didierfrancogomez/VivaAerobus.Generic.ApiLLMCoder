@@ -4,7 +4,7 @@
 > **MANDATORY support from the LLM repo:**
 > - `documents/cross-module/dependency-map.md` — **reverse index**: for every shared model/service
 >   touched, the list of consuming concepts. Never report "no impact" without having consulted it.
-> - `llm/ANALYZE-TASK.md` §Phase 3 — the list of impacts specific to this system (Basket
+> - `process/ANALYZE-TASK.md` §Phase 3 — the list of impacts specific to this system (Basket
 >   lifecycle, shared contracts `OutputModel<T>`/`ErrorCode`, in-flight sessions, cache with reset
 >   endpoints, queued side effects, money/points/currencies, security surface).
 > - `documents/cross-module/error-codes.md` if the change touches error codes.

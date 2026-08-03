@@ -7,7 +7,7 @@
 >    in the output.
 > 2. Locate the code via `documents/concepts/_catalog.md` → the concept doc →
 >    `documents/integrations/_catalog.md` if an external service is involved.
-> 3. Apply `llm/ANALYZE-TASK.md` phases 0–2 (restatement, channel/flow/version classification,
+> 3. Apply [`process/ANALYZE-TASK.md`](ANALYZE-TASK.md) (local) phases 0–2 (restatement, channel/flow/version classification,
 >    clarity gates) as part of this phase.
 > 4. **If an LLM doc contradicts the code or is incomplete:** that is a finding — report it and
 >    **invoke the ApiLLM `doc-sync` pipeline** to fix it. It is never documented here.
@@ -28,16 +28,21 @@ This is the phase that prevents the most rework.
 5. **Identify nearby "dead or nearly dead code"**: things that look relevant but no longer run.
    ⚠️ In this API there are files present but **excluded from compilation**
    (`<Compile Remove>` in the `.csproj`) — never assume a file in the tree is active
-   (see `llm/ANALYZE-TASK.md` §Phase 4, "Build traps").
+   (see `process/ANALYZE-TASK.md` §Phase 4, "Build traps").
 
 ## 1.2 Understand the current behavior
 
 1. **Read the code, don't guess it.** Also read the existing tests: they are the real specification
    of the current behavior.
 2. **Run it locally** and observe the current behavior with real or realistic data (setup in
-   `documents/operations/local-setup.md` of the LLM repo).
+   `documents/operations/local-setup.md` of the LLM repo). ⚠️ If the flow **cannot** be run
+   locally (it depends on external systems — DotRez, PSPs, Hopper… — or on credentials/sandboxes
+   you don't have), **say so explicitly in the output** and reason from the code + the existing
+   tests instead; the same rule as Phase 7's "testable is verified, not assumed". Never present
+   behavior as observed when it was only read.
 3. **For bugs: reproduce first.** If you can't reproduce, you can't fix. If it doesn't reproduce,
-   that is already a finding that goes to Phase 4.
+   that is already a finding that goes to Phase 4 (and if reproduction is impossible for the
+   environment reasons above, that limitation is stated in the analysis, not silently skipped).
 4. **Document the current behavior** in 3–5 bullets **with citations** (`path/File.cs :: Symbol`).
    This becomes the baseline against which the "after" is defined.
 5. **Identify undocumented behaviors someone depends on** (side effects, execution order,

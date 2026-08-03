@@ -7,6 +7,23 @@
 **Objective:** understand the *intent* behind the ticket, not just its text. A ticket is an
 imperfect summary of a conversation that already happened.
 
+## 0.0 Scaffold + fetch + readiness gate (automated)
+
+1. **Scaffold:** run `tools/new-task.sh <KEY> "<title>"` — creates `work/<KEY>/` +
+   `delivery-state.md` from the template and points `work/_active`. When `tools/jira-sync` is
+   configured it also **fetches the ticket to disk** (`jira_tickets/…/<KEY>.txt`: header, labels,
+   Test Flow, description, **subtasks with full descriptions**, every comment) and runs the
+   **readiness gate** (`jira_sync.py ready <KEY>`). If it is not configured, the user provides the
+   ticket content (Annex D §D.2).
+2. **The readiness gate is the Definition of Ready made mechanical** (per PRC-105/PRC-106 in the
+   LLM repo's `guidelines/process.md`): a development ticket without the `TestCaseReady` label or
+   without a test-case matrix in its **evidence subtask** is **not startable** — the fix is a
+   question to the requester, never an improvised test plan. Research tickets are exempt.
+3. **Matrix authority:** the authoritative test-case matrix is the **evidence subtask's
+   description**, not the ticket description (they can disagree). **Comments retire or add
+   rows** ("I will remove TC02…") — a retired row is out of scope. Test-user credentials arriving
+   in comments are never copied into tracked files.
+
 ## 0.1 Reading and classification
 
 1. **Read the entire ticket**, including: description, acceptance criteria, comments (all of them,
@@ -19,7 +36,13 @@ imperfect summary of a conversation that already happened.
    - New feature
    - Modification of existing behavior
    - Refactor / technical debt (no observable behavior change)
-   - Spike / investigation (the deliverable is knowledge, not code)
+   - Spike / investigation / research (the deliverable is knowledge, not code) → **research
+     route**: phases 0–4 then STOP. Deliver a written finding, hand its text to the user as a
+     Jira comment, and propose the follow-up development ticket. **No PR, no `TestComplete`.**
+     If the investigation produced a reproduction, keep it as a Postman collection so the
+     follow-up starts with a failing case. Signals: summary starts `Investigation -`/`Spike`/
+     `Analysis`, no evidence subtask, asks for an answer/root cause. **When ambiguous, ask** —
+     never assume a research ticket wants code.
    - Data or infrastructure migration
    - Configuration change
 
@@ -76,10 +99,11 @@ gets completed via Phase 4.
 
 ---
 
-**Artifacts:** create `work/<KEY>/` and write the key into `work/_active`; save
-`work/<KEY>/phase-00-intake.md` (restated understanding + initial list of doubts + classification
-of work type and rigor level — if the level is *risky*, also create
-`work/<KEY>/HUMAN-GATE-REQUIRED`); publish the same content as a comment on the ticket.
+**Artifacts:** `work/<KEY>/` and `work/_active` already exist (created by `tools/new-task.sh`,
+§0.0); save `work/<KEY>/phase-00-intake.md` from `process/_templates/phase-artifact.md`
+(restated understanding + initial list of doubts + classification of work type and rigor level +
+the `ready` gate result — if the level is *risky*, also create `work/<KEY>/HUMAN-GATE-REQUIRED`);
+update `delivery-state.md`; publish the same content as a comment on the ticket (Annex D §D.2).
 
 **Exit criterion:** you can explain out loud the problem, the expected outcome, who asked for it
 and why, without reading the ticket.

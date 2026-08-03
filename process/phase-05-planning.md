@@ -3,7 +3,7 @@
 > **Question it answers:** how am I going to do it, in what order, with what risks?
 > **Precondition:** verdict ✅ from the gate (Phase 4). With ⚠️/⛔ this phase is NOT executed.
 > **MANDATORY support in the LLM repo:**
-> - `llm/change-playbook.md` steps 1–6 — re-read the approved analysis, confirm the load-bearing
+> - [`process/change-playbook.md`](change-playbook.md) steps 1–6 — re-read the approved analysis, confirm the load-bearing
 >   facts in the code, plan with citations, where each piece goes
 >   (`documents/architecture/conventions.md`, `patterns-cqrs.md`), new error codes (never
 >   reuse — `documents/cross-module/error-codes.md`), kill switch.
@@ -50,7 +50,12 @@ Each one is a short section written in the ticket, not a thought:
    dashboard shows whether this works.
 5. **Test plan** (written before coding): what is tested at the unit level, what at integration,
    what at contract, what e2e, what manually, what test data is needed, which negative and edge
-   cases. The acceptance criteria are converted one-to-one into test cases.
+   cases. The acceptance criteria are converted one-to-one into test cases. ⚠️ **Both the
+   implementation steps and the test scenarios are NUMBERED with stable ids** (`P-NN` / `S-NN`,
+   template: `process/_templates/plan.md`): Phase 7 executes against the `S-NN` list row by row,
+   and Phase 9's `COMPLETENESS: VERIFIED` is earned by auditing both lists one-to-one — an
+   unnumbered plan cannot be audited. If the ticket carries a test-case matrix (evidence
+   subtask, §0.0), the `S-NN` list subsumes it: every live matrix row maps to an `S-NN`.
 6. **Rollout and rollback plan:** how it is deployed, in what order, how it is verified, how it is
    reverted, what the kill switch is, what is irreversible (⚠️ destructive migrations, email
    sends, charges, published events).
@@ -88,7 +93,12 @@ Each one is a short section written in the ticket, not a thought:
 
 **Artifacts:** `work/<KEY>/phase-05-plan.md` — design document, ADR if applicable, test plan,
 rollout plan, list of steps, risk log, updated estimate — all with citations and with the
-`guidelines/**` IDs the code will have to honor. If the task is at the *risky* level
+`guidelines/**` IDs the code will have to honor. The plan is the **contract against which
+deviations are audited in Phase 9**: it ends with a `## Deviations (approved)` section, initially
+empty. Any deviation that appears later (Phase 6/9) is either (a) approved by the user and
+appended there — what changed, why, who approved, when — or (b) not approved, in which case the
+work goes back to Phase 4/5. A deviation that is neither documented nor approved blocks
+publication (`DEVIATIONS:` line, Phase 9). If the task is at the *risky* level
 (`HUMAN-GATE-REQUIRED`), the human approves the plan by creating `work/<KEY>/HUMAN-GATE-OK`
 by hand — the agent never creates that file.
 

@@ -9,15 +9,16 @@
 >   reviewers and by the Phase 9 gate.
 > - `documents/architecture/conventions.md` + `patterns-cqrs.md` — where each piece goes (thin
 >   controller, handler per feature, builders, registered validators).
-> - `llm/change-playbook.md` step 7: if the implementation reveals something the analysis missed,
+> - `process/change-playbook.md` step 7: if the implementation reveals something the analysis missed,
 >   **stop and go back to the gate (Phase 4)** instead of improvising.
 
 **Objective:** execute the plan in a verifiable, incremental way, without deviating in silence.
 
 ## 6.1 Environment preparation
 
-1. Update the base branch (`master`) and create the branch following the team's convention:
-   `type/KEY-123-short-description`. ⚠️ The Jira key in the branch name is **load-bearing**: the
+1. Update the base branch (`master`) and create the branch following the client's convention
+   (PRC-102 in the LLM repo's `guidelines/process.md`): `feature/API-<n>/<kebab-slug>` (or
+   `fix/…`). ⚠️ The Jira key in the branch name is **load-bearing**: the
    enforcement hooks resolve which task a code change belongs to from the checked-out branch and
    validate it against `work/KEY-123/` — that is what lets several plans run in parallel, each on
    its own branch. A branch whose key has no analysis artifacts gets its writes denied.
@@ -36,9 +37,13 @@
    with the happy path and then the edges.
 3. **Work in small increments**, running tests and linters locally at every step. Never accumulate
    3 days of changes without verifying.
-4. **Small, atomic commits with an explanatory message** (conventional format:
-   `feat(scope): ...`, `fix(scope): ...`, with the ticket key). The message explains the *why*;
-   the diff already explains the *what*.
+4. **Small, atomic commits with an explanatory message** (client convention, PRC-102:
+   `API-<n> <gitmoji> <imperative why>`; formatting-only changes in their own commit, PRC-30).
+   The message explains the *why*; the diff already explains the *what*. ⚠️ These development
+   commits are **working
+   checkpoints**: the team policy is that the PR carries **ONE clean commit with the whole
+   solution** — the branch is squashed in Phase 9 (§9.3) before asking the user to approve
+   publication.
 5. **Sync with the base branch daily** (rebase or merge per the team's standard) to avoid the
    giant conflict at the end.
 6. **Continuous manual functional verification:** don't wait until the end to look at the screen
@@ -78,6 +83,10 @@
 3. **If a big problem appears** (the plan doesn't work, the impact is larger, there is a technical
    impossibility): **stop and go back to Phase 4/5**. Communicate it the same day. Do not try to
    "solve it with more hours".
+   **Any deviation from the approved plan — even a small one — requires the user's approval** and
+   is recorded in `work/<KEY>/phase-05-plan.md §Deviations (approved)` (what changed, why, who
+   approved, when). Phase 9 audits the diff against the plan: an undocumented or unapproved
+   deviation blocks publication.
 4. **If the diff grows too large** (>~400 lines of real change, or it touches unrelated domains):
    split it into several PRs.
 5. **Timebox rule:** if you have been stuck for more than ~2 hours without progress, ask for help.

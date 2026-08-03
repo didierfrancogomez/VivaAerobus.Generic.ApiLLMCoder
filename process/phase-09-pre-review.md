@@ -1,8 +1,7 @@
 # Phase 9 — Pre-review (self-review before requesting review)
 
 > **Question it answers:** is it ready to spend another person's time?
-> **MANDATORY gate with the LLM repo:** run
-> `../VivaAerobus.Generic.ApiLLM/llm/REVIEW-CODE.md` on the diff — the local validator that applies
+> **MANDATORY gate:** run [`process/REVIEW-CODE.md`](REVIEW-CODE.md) on the diff — the local validator that applies
 > the same bar as the human reviewers (`guidelines/**`, the task's purpose, blast radius). The
 > verdict must be **APPROVED**: any 🐛/❗ finding blocks moving on to Phase 10. For *risky*-level
 > changes, additionally run an independent verification pass (the ApiLLM's `evidence-auditor`
@@ -37,9 +36,22 @@ as if it belonged to someone else you feel no affection for.
    explicitly ruled out. **This is the step that prevents the most incidents.**
 3. **Assumption log (Phase 4):** every assumption is validated, or it is noted in the PR for the
    reviewer to confirm.
-4. **Plan (Phase 5):** does the implementation match the approved plan? If you deviated, document
-   why.
+4. **Deviation audit (Phase 5's plan is the contract):** compare the diff against
+   `phase-05-plan.md` piece by piece. Every deviation must be (a) **approved by the user** and
+   (b) **documented in the plan's `## Deviations (approved)` section**. An unapproved or
+   undocumented deviation sends the work back to Phase 4/5 — it is never "explained in the PR"
+   instead. Outcome recorded as `DEVIATIONS: NONE` or `DEVIATIONS: APPROVED-AND-DOCUMENTED`
+   (the hooks demand one of the two before push).
 5. **Anti-scope:** verify no changes outside the agreed scope slipped in.
+6. **Final completeness re-validation (mandatory before calling it implemented):** with the three
+   sources side by side — the **Jira task** (description, acceptance criteria, comments — a
+   comment may have retired matrix rows), the **plan** (every numbered `P-NN` step, every
+   specific plan) and the **code** (the full diff) — confirm that nothing remains uninvolved:
+   no acceptance criterion without code, no `P-NN` without its diff, no impact-matrix row
+   without its change or its explicit discard, no `S-NN` scenario without its Phase 7 evidence
+   row or written non-applicability. The audit is row-by-row over the numbered lists, not an
+   impression. Only when the three agree is `COMPLETENESS: VERIFIED` recorded (the hooks demand
+   it before push).
 
 ## 9.3 Final technical hygiene
 
@@ -48,8 +60,11 @@ as if it belonged to someone else you feel no affection for.
 2. **Clone/build from scratch** (or delete dependencies and reinstall) to detect anything that only
    works on your machine.
 3. **Verify migrations:** apply and revert on a clean database and on a database with data.
-4. **Clean up the commit history:** interactive rebase, clear messages, no commits like "fix",
-   "wip", "almost there". One logical commit per logical change.
+4. **Squash into ONE clean commit (team policy):** the PR carries a single commit containing the
+   whole solution, conventional message with the ticket key, explaining the *why*. The
+   development checkpoints (Phase 6) disappear here — e.g.
+   `git reset --soft master && git commit` (interactive rebase is not available to the agent
+   harness). This single commit is the one `VALIDATED-SHA` anchors to.
 5. **Update with the base branch** and re-run the tests after the merge/rebase (semantic conflicts
    do not produce a git conflict).
 6. **Assess the PR size:** if it is large, split it. A 1,000-line PR does not get reviewed, it gets
@@ -58,7 +73,7 @@ as if it belonged to someone else you feel no affection for.
 
 ## 9.4 Local validator gate (REVIEW-CODE.md)
 
-1. Run the ApiLLM's `llm/REVIEW-CODE.md` with: (a) the diff (`git -C ../VivaAerobus.Generic.Api
+1. Run `process/REVIEW-CODE.md` with: (a) the diff (`git -C ../VivaAerobus.Generic.Api
    diff master...<branch>`), and (b) the ticket + the Stage A analysis.
 2. Every finding cites the rule (`STY-NN`/`ARC-NN`/`ROB-NN`/`PRC-NN`) and the exact location.
 3. **APPROVED** → continue. **CHANGES_REQUESTED** → fix and re-run the gate. A 🐛/❗ finding is
@@ -66,12 +81,26 @@ as if it belonged to someone else you feel no affection for.
 
 ---
 
-**Artifacts:** clean diff, completed self-review checklist, and
-`work/<KEY>/phase-09-pre-review.md` with the validator's result — it MUST contain the literal line
-`REVIEW-CODE: APPROVED` (the hooks block `git push` / `gh pr create` without it). It is written
-only when `REVIEW-CODE.md` actually returned APPROVED.
+**Artifacts:** clean diff squashed into one commit, completed self-review checklist, and
+`work/<KEY>/phase-09-pre-review.md` (skeleton: `process/_templates/validation-report.md`;
+on rework, the previous one was archived by `tools/new-run.sh` into `validation/run-NNN/` —
+runs are immutable, never edited). The hooks block `git push` /
+`gh pr create` unless the file contains ALL of these lines at column 0, each written only when it
+is actually true (recording one without doing the work is falsifying the gate):
 
-**Exit criterion:** you would be comfortable if this diff were shown in a public team review, and
-`REVIEW-CODE.md` returned APPROVED.
+```
+REVIEW-CODE: APPROVED
+VALIDATED-SHA: <git -C ../VivaAerobus.Generic.Api rev-parse HEAD — the squashed commit>
+COMPLETENESS: VERIFIED
+DEVIATIONS: NONE            (or DEVIATIONS: APPROVED-AND-DOCUMENTED)
+```
 
-**Next:** [Phase 10 — Create the PR and manage the review](phase-10-pr-review.md)
+⚠️ **Diff drift:** if the code repo's HEAD changes after this file is written (any new commit),
+the approval is void — the hooks deny the push until `REVIEW-CODE.md` is re-run on the current
+diff and `VALIDATED-SHA` is updated.
+
+**Exit criterion:** you would be comfortable if this diff were shown in a public team review,
+`REVIEW-CODE.md` returned APPROVED, and the four marker lines above are true.
+
+**Next:** [Phase 10 — Create the PR and manage the review](phase-10-pr-review.md) — which begins
+by **asking the user for publication approval** (`PUSH-APPROVED`); nothing is pushed before that.
