@@ -1,0 +1,4 @@
+# Artefactos de trabajo por tarea — pueden contener datos de tickets/clientes; no se versionan
+work/
+
+.DS_Store
