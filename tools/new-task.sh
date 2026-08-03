@@ -30,6 +30,7 @@ fi
 
 printf '%s\n' "$KEY" > "$ROOT/work/_active"
 echo "✔ work/_active → $KEY"
+bash "$ROOT/tools/update-index.sh"
 
 # Optional Jira intake (Phase 0 support): fetch + readiness gate, when configured.
 JS="$ROOT/tools/jira-sync"

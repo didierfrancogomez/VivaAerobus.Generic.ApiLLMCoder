@@ -103,7 +103,11 @@ gets completed via Phase 4.
 §0.0); save `work/<KEY>/phase-00-intake.md` from `process/_templates/phase-artifact.md`
 (restated understanding + initial list of doubts + classification of work type and rigor level +
 the `ready` gate result — if the level is *risky*, also create `work/<KEY>/HUMAN-GATE-REQUIRED`);
-update `delivery-state.md`; publish the same content as a comment on the ticket (Annex D §D.2).
+update `delivery-state.md`; publish the same content as a comment on the ticket (Annex D §D.2)
+— **that comment always ends with the workspace link**
+(`https://github.com/didierfrancogomez/VivaAerobus.Generic.ApiLLMCoder/tree/main/work/<KEY>`),
+so the Jira ticket points at its documentation and anyone can jump from the ticket to the
+resumable workspace.
 
 **Exit criterion:** you can explain out loud the problem, the expected outcome, who asked for it
 and why, without reading the ticket.

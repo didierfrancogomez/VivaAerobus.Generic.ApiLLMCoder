@@ -17,11 +17,12 @@ for a in "$@"; do [ "$a" = "--no-push" ] && PUSH=0; done
 DIR="$ROOT/work/$KEY"
 [ -d "$DIR" ] || { echo "⛔ no work/$KEY — nothing to save"; exit 2; }
 
-git -C "$ROOT" add -- "work/$KEY" 2>/dev/null || true
-if git -C "$ROOT" diff --cached --quiet -- "work/$KEY"; then
+bash "$ROOT/tools/update-index.sh"
+git -C "$ROOT" add -- "work/$KEY" work/README.md 2>/dev/null || true
+if git -C "$ROOT" diff --cached --quiet -- "work/$KEY" work/README.md; then
   echo "· work/$KEY has no new changes to version"
 else
-  git -C "$ROOT" commit -q -m "progress($KEY): $NOTE" -- "work/$KEY"
+  git -C "$ROOT" commit -q -m "progress($KEY): $NOTE" -- "work/$KEY" work/README.md
   SHA="$(git -C "$ROOT" rev-parse --short HEAD)"
   echo "✔ committed $SHA — progress($KEY): $NOTE"
 fi

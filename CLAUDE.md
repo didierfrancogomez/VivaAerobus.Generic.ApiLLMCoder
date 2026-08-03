@@ -130,10 +130,11 @@ repo running `/implement <KEY>`**; a human-owned step is never claimed done).
 - **Validation runs are immutable:** rework starts with `tools/new-run.sh <KEY>` — it archives
   phase-07/09 + `PUSH-APPROVED` into `work/<KEY>/validation/run-NNN/` (never edited, never
   reused as evidence) and mechanically re-closes the publication gates.
-- **Progress is versioned and resumable.** Closing a phase ends with
-  `tools/save-progress.sh <KEY> "<phase>"` — commits + pushes `work/<KEY>/` — and the agent
-  **tells the user the folder** (`work/<KEY>/`, board `delivery-state.md`) so they can resume
-  anytime with `/implement <KEY>`. Never versioned (gitignore): human signatures
+- **Progress is versioned, resumable and indexed by Jira key.** Closing a phase ends with
+  `tools/save-progress.sh <KEY> "<phase>"` — commits + pushes `work/<KEY>/` and regenerates the
+  task index `work/README.md` — and the agent **tells the user the folder** (`work/<KEY>/`,
+  board `delivery-state.md`) so they can resume anytime with `/implement <KEY>`. The Phase 0
+  ticket comment links back to the workspace. Never versioned (gitignore): human signatures
   (`PUSH-APPROVED`, `HUMAN-GATE-OK`, `_PROCESS-CHANGE-OK`), `_active`, ticket dumps/attachments.
 
 ### Scaling rigor to risk
