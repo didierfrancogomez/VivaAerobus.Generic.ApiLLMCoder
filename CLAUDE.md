@@ -1,156 +1,156 @@
-# CLAUDE.md — VivaAerobus.Generic.ApiLLMCoder (Agente implementador)
+# CLAUDE.md — VivaAerobus.Generic.ApiLLMCoder (Implementer agent)
 
-> Este repositorio es el **agente de implementación** para `VivaAerobus.Generic.Api`. Su trabajo:
-> dada una **tarea de Jira**, ejecutar el proceso obligatorio de 12 fases (`process/`), **detenerse
-> si hay temas bloqueantes**, o **implementar** si puede continuar.
+> This repository is the **implementation agent** for `VivaAerobus.Generic.Api`. Its job: given a
+> **Jira task**, execute the mandatory 12-phase process (`process/`), **stop if there are
+> blockers**, or **implement** if it can proceed.
 >
-> **Este archivo orquesta. No contiene el proceso.** Léelo primero y carga solo la fase que toca.
+> **This file orchestrates. It does not hold the process.** Read it first and load only the phase
+> at hand.
 
 ---
 
-## ⚠️ NO NEGOCIABLE — Las tres reglas que nunca se rompen
+## ⚠️ NON-NEGOTIABLE — The three rules that never break
 
-1. **Análisis antes de código, siempre.** Las fases 0–4 se completan ANTES de escribir una sola
-   línea. El gate de la Fase 4 decide: bloqueantes duros abiertos → **DETENERSE y preguntar**;
-   veredicto ✅ y cero bloqueantes → continuar a implementación (fases 5–11). No hay atajo.
-2. **Este repo NO documenta el sistema.** El conocimiento del API vive en el repo **ApiLLM**
-   (`../VivaAerobus.Generic.ApiLLM/documents/**`). Si durante el trabajo se detecta documentación
-   faltante, desactualizada o incorrecta, se **invoca el pipeline del ApiLLM** (su `CLAUDE.md`
-   paso 1 / agente `doc-sync`) para que la procese. Nunca se escribe documentación del sistema aquí,
-   ni inline en el análisis como "conocimiento nuevo".
-3. **Evidencia primero** — regla heredada íntegra de `../VivaAerobus.Generic.ApiLLM/CLAUDE.md`
-   §"NON-NEGOTIABLE — Evidence first": nunca asumir, nunca inferir de nombres, toda afirmación se
-   cita contra el código (`path/File.cs :: Symbol`), lo desconocido se escribe como `unknown`, y
-   toda ambigüedad es una **pregunta bloqueante**, jamás una decisión unilateral.
+1. **Analysis before code, always.** Phases 0–4 are completed BEFORE writing a single line. The
+   Phase 4 gate decides: open hard blockers → **STOP and ask**; verdict ✅ and zero blockers →
+   proceed to implementation (phases 5–11). There is no shortcut.
+2. **This repo does NOT document the system.** Knowledge about the API lives in the **ApiLLM**
+   repo (`../VivaAerobus.Generic.ApiLLM/documents/**`). If work surfaces missing, stale or
+   incorrect documentation, **invoke the ApiLLM pipeline** (its `CLAUDE.md` step 1 / `doc-sync`
+   agent) to process it. System documentation is never written here, nor inline in an analysis as
+   "new knowledge".
+3. **Evidence first** — rule inherited verbatim from `../VivaAerobus.Generic.ApiLLM/CLAUDE.md`
+   §"NON-NEGOTIABLE — Evidence first": never assume, never infer from names, every claim is cited
+   against the code (`path/File.cs :: Symbol`), the unknown is written as `unknown`, and every
+   ambiguity is a **blocking question**, never a unilateral decision.
 
 ---
 
-## Layout de repositorios — supuesto OBLIGATORIO
+## Repository layout — MANDATORY assumption
 
-Los tres repos son **carpetas hermanas** bajo el mismo directorio padre. Todas las rutas de este
-repo asumen ese layout; si no se cumple, detenerse y pedir las rutas reales.
+The three repos are **sibling folders** under the same parent directory. Every path in this repo
+assumes that layout; if it does not hold, stop and ask for the real paths.
 
-| Carpeta hermana | Rol | Se escribe aquí? |
+| Sibling folder | Role | Written from here? |
 |---|---|---|
-| `../VivaAerobus.Generic.Api` | **API** — el código fuente (source of truth). Branch por defecto: `master` | ✅ Sí — la implementación (fases 6–10) |
-| `../VivaAerobus.Generic.ApiLLM` | **LLM** — documentación evidenciada + pipeline de análisis | ⛔ Nunca directo — solo vía su propio pipeline (`doc-sync`) |
-| `../VivaAerobus.Generic.ApiLLMCoder` | **Coder** — este repo: el proceso de implementación | Solo artefactos de proceso (matrices, planes, registros) |
+| `../VivaAerobus.Generic.Api` | **API** — the source code (source of truth). Default branch: `master` | ✅ Yes — the implementation (phases 6–10) |
+| `../VivaAerobus.Generic.ApiLLM` | **LLM** — evidence-cited documentation + analysis pipeline | ⛔ Never directly — only via its own pipeline (`doc-sync`) |
+| `../VivaAerobus.Generic.ApiLLMCoder` | **Coder** — this repo: the implementation process | Only process artifacts (matrices, plans, records) |
 
-- Código root del API: `../VivaAerobus.Generic.Api/VivaAerobus.Generic.Api/src/app/VivaAerobus.Generic.Api`
+- API code root: `../VivaAerobus.Generic.Api/VivaAerobus.Generic.Api/src/app/VivaAerobus.Generic.Api`
 - Tests root: `../VivaAerobus.Generic.Api/VivaAerobus.Generic.Api/src/tests`
 
 ---
 
-## Pipeline — dada una tarea de Jira
+## Pipeline — given a Jira task
 
 ```
 Jira task
    │
    ▼
 ┌─────────────────────────────────────────────────────┐
-│ ETAPA A — ANÁLISIS (fases 0–4) · usa el repo LLM     │
-│ 0 Intake → 1 Contraste código → 2 Radio de impacto   │
-│ → 3 Cobertura/viabilidad → 4 Bloqueantes y supuestos │
+│ STAGE A — ANALYSIS (phases 0–4) · uses the LLM repo  │
+│ 0 Intake → 1 Code contrast → 2 Impact radius         │
+│ → 3 Coverage/feasibility → 4 Blockers & assumptions  │
 └─────────────────────────────────────────────────────┘
    │
    ▼
-══ GATE ══  ¿bloqueantes duros? ¿veredicto ⚠️/⛔?
+══ GATE ══  hard blockers? verdict ⚠️/⛔?
    │                                │
-   │ ✅ cero bloqueantes            │ ⚠️/⛔ hay bloqueantes
+   │ ✅ zero blockers               │ ⚠️/⛔ blockers exist
    ▼                                ▼
-┌──────────────────────────────┐  ⛔ DETENERSE. Emitir preguntas
-│ ETAPA B — EJECUCIÓN (5–11)   │  bloqueantes (formato Fase 4.2),
-│ 5 Plan → 6 Implementar →     │  registrar supuestos, marcar la
-│ 7 Testear → 8 Liberación →   │  tarea como Blocked. NO codificar.
+┌──────────────────────────────┐  ⛔ STOP. Surface the blocking
+│ STAGE B — EXECUTION (5–11)   │  questions (Phase 4.2 format),
+│ 5 Plan → 6 Implement →       │  record the assumptions, mark the
+│ 7 Test → 8 Release prep →    │  task as Blocked. Do NOT code.
 │ 9 Pre-review → 10 PR →       │
 │ 11 Post-merge                │
 └──────────────────────────────┘
 ```
 
-### Mapa fase → archivo → artefacto del repo LLM que usa
+### Map: phase → process file → LLM-repo artifact it uses
 
-| Fase | Archivo del proceso | Apoyo obligatorio en `../VivaAerobus.Generic.ApiLLM/` |
+| Phase | Process file | Mandatory support in `../VivaAerobus.Generic.ApiLLM/` |
 |---|---|---|
-| 0 Intake | [`process/fase-00-intake.md`](process/fase-00-intake.md) | `documents/concepts/_catalog.md` (términos del dominio) |
-| 1 Contraste vs código | [`process/fase-01-contraste-codigo.md`](process/fase-01-contraste-codigo.md) | **`CLAUDE.md` paso 1 (SYNC) primero**, luego `llm/ANALYZE-TASK.md` fases 0–2 + `documents/**` |
-| 2 Radio de impacto | [`process/fase-02-radio-impacto.md`](process/fase-02-radio-impacto.md) | `documents/cross-module/dependency-map.md` + `llm/ANALYZE-TASK.md` fase 3 |
-| 3 Cobertura y viabilidad | [`process/fase-03-cobertura-viabilidad.md`](process/fase-03-cobertura-viabilidad.md) | `llm/ANALYZE-TASK.md` fases 4–5 |
-| 4 Bloqueantes (GATE) | [`process/fase-04-bloqueantes.md`](process/fase-04-bloqueantes.md) | Reglas de preguntas de `llm/ANALYZE-TASK.md` §Phase 5 |
-| 5 Planeación | [`process/fase-05-planeacion.md`](process/fase-05-planeacion.md) | `llm/change-playbook.md` pasos 1–6 + `guidelines/**` |
-| 6 Implementación | [`process/fase-06-implementacion.md`](process/fase-06-implementacion.md) | `guidelines/**` (normativo) + `documents/architecture/conventions.md`, `patterns-cqrs.md` |
-| 7 Testing | [`process/fase-07-testing.md`](process/fase-07-testing.md) | `documents/operations/testing.md` |
-| 8 Liberación | [`process/fase-08-liberacion.md`](process/fase-08-liberacion.md) | `documents/_meta/flags-and-rules.md` (kill switch / config parts) |
-| 9 Pre-review | [`process/fase-09-pre-review.md`](process/fase-09-pre-review.md) | **`llm/REVIEW-CODE.md`** — veredicto APPROVED obligatorio |
-| 10 PR y revisión | [`process/fase-10-pr-revision.md`](process/fase-10-pr-revision.md) | — |
-| 11 Post-merge y cierre | [`process/fase-11-post-merge.md`](process/fase-11-post-merge.md) | **Invocar `doc-sync` del ApiLLM** para re-documentar lo cambiado |
+| 0 Intake | [`process/phase-00-intake.md`](process/phase-00-intake.md) | `documents/concepts/_catalog.md` (domain terms) |
+| 1 Code contrast | [`process/phase-01-code-contrast.md`](process/phase-01-code-contrast.md) | **`CLAUDE.md` step 1 (SYNC) first**, then `llm/ANALYZE-TASK.md` phases 0–2 + `documents/**` |
+| 2 Impact radius | [`process/phase-02-impact-radius.md`](process/phase-02-impact-radius.md) | `documents/cross-module/dependency-map.md` + `llm/ANALYZE-TASK.md` phase 3 |
+| 3 Coverage & feasibility | [`process/phase-03-coverage-feasibility.md`](process/phase-03-coverage-feasibility.md) | `llm/ANALYZE-TASK.md` phases 4–5 |
+| 4 Blockers (GATE) | [`process/phase-04-blockers.md`](process/phase-04-blockers.md) | Question rules from `llm/ANALYZE-TASK.md` §Phase 5 |
+| 5 Planning | [`process/phase-05-planning.md`](process/phase-05-planning.md) | `llm/change-playbook.md` steps 1–6 + `guidelines/**` |
+| 6 Implementation | [`process/phase-06-implementation.md`](process/phase-06-implementation.md) | `guidelines/**` (normative) + `documents/architecture/conventions.md`, `patterns-cqrs.md` |
+| 7 Testing | [`process/phase-07-testing.md`](process/phase-07-testing.md) | `documents/operations/testing.md` |
+| 8 Release prep | [`process/phase-08-release.md`](process/phase-08-release.md) | `documents/_meta/flags-and-rules.md` (kill switch / config parts) |
+| 9 Pre-review | [`process/phase-09-pre-review.md`](process/phase-09-pre-review.md) | **`llm/REVIEW-CODE.md`** — APPROVED verdict mandatory |
+| 10 PR & review | [`process/phase-10-pr-review.md`](process/phase-10-pr-review.md) | — |
+| 11 Post-merge & closure | [`process/phase-11-post-merge.md`](process/phase-11-post-merge.md) | **Invoke the ApiLLM's `doc-sync`** to re-document what changed |
 
-Anexos: [checklist diario](process/anexo-a-checklist.md) ·
-[ruta hotfix](process/anexo-b-hotfix.md) · [implantación en el equipo](process/anexo-c-implantacion.md)
+Annexes: [daily checklist](process/annex-a-checklist.md) ·
+[hotfix route](process/annex-b-hotfix.md) · [team adoption](process/annex-c-adoption.md)
 
-### Reglas que atan el pipeline
+### Rules that bind the pipeline
 
-- **Ninguna fase se salta.** Cada fase tiene *criterio de salida* explícito; no se pasa a la
-  siguiente sin cumplirlo. El rigor se escala al riesgo (tabla abajo), pero el gate de la Fase 4
-  aplica **siempre**, incluso en cambios triviales.
-- **Principio rector:** el costo de corregir un error se multiplica ~10× por fase. Todo el proceso
-  existe para mover el descubrimiento de problemas a las fases 0–4, donde corregir cuesta una
-  conversación.
-- **La Fase 1 empieza sincronizando el repo LLM** (su `CLAUDE.md` paso 1 / `llm/SYNC.md`). Docs
-  stale ⇒ razonar desde el código y decirlo explícitamente en el output del análisis.
-- **Todo hallazgo fuera de alcance** → ticket nuevo, nunca dentro del diff actual (Fase 6.4).
-- **Hotfix / incidente en producción** → ruta comprimida del
-  [Anexo B](process/anexo-b-hotfix.md); nada se elimina, se posterga.
-- **Subagentes no heredan nada.** Al delegar, pegar en el prompt: (a) la regla de evidencia, (b) el
-  estado de sync de los docs, (c) qué archivo de `process/` o de `llm/` seguir.
+- **No phase is skipped.** Each phase has an explicit *exit criterion*; the next phase does not
+  start until it is met. Rigor scales with risk (table below), but the Phase 4 gate applies
+  **always**, even to trivial changes.
+- **Guiding principle:** the cost of fixing a mistake multiplies ~10× per phase. This whole
+  process exists to move problem discovery into phases 0–4, where a fix costs a conversation.
+- **Phase 1 starts by syncing the LLM repo** (its `CLAUDE.md` step 1 / `llm/SYNC.md`). Stale docs
+  ⇒ reason from the code and say so explicitly in the analysis output.
+- **Every out-of-scope finding** → new ticket, never inside the current diff (Phase 6.4).
+- **Hotfix / production incident** → compressed route in
+  [Annex B](process/annex-b-hotfix.md); nothing is dropped, it is deferred.
+- **Subagents inherit nothing.** When delegating, paste into the prompt: (a) the evidence rule,
+  (b) the docs-sync status, (c) which `process/` or `llm/` file to follow.
 
-### Escalado de rigor al riesgo
+### Scaling rigor to risk
 
-| Nivel | Ejemplos | Fases que aplican completas |
+| Level | Examples | Phases that apply in full |
 |---|---|---|
-| **Trivial** | texto, typo, log level | 0, 1, 4 (gate), 6, 9, 10 — matrices reducidas a un párrafo |
-| **Normal** | feature acotada, bug sin datos | Todas; ADR y runbook opcionales |
-| **Riesgoso** | migración, contrato, pagos, flags, multi-repo | Todas, completas: ADR + runbook + rollback probado obligatorios |
+| **Trivial** | copy, typo, log level | 0, 1, 4 (gate), 6, 9, 10 — matrices reduced to a paragraph |
+| **Normal** | bounded feature, bug without data impact | All; ADR and runbook optional |
+| **Risky** | migration, contract, payments, flags, multi-repo | All, in full: ADR + runbook + tested rollback mandatory |
 
-La clasificación se decide en la Fase 0.1 y se escribe en el ticket. En duda, un nivel arriba.
+The classification is decided in Phase 0.1 and written into the ticket. When in doubt, one level
+up.
 
 ---
 
-## Artefactos de trabajo — el contrato que abre el gate (ENFORCED)
+## Work artifacts — the contract that opens the gate (ENFORCED)
 
-Cada tarea escribe sus artefactos en `work/<CLAVE>/` con **nombres fijos**; además se publican como
-comentarios en el ticket de Jira (el ticket es la memoria del proyecto). Los hooks de `.claude/`
-verifican estos archivos **mecánicamente** — hasta que existen, toda escritura en el repo del API
-está **bloqueada** (deny en `PreToolUse`), y `git push` / `gh pr create` lo están hasta pasar la
-Fase 9:
+Each task writes its artifacts into `work/<KEY>/` with **fixed names**; they are also posted as
+comments on the Jira ticket (the ticket is the project's memory). The hooks in `.claude/` verify
+these files **mechanically** — until they exist, every write to the API repo is **blocked**
+(`PreToolUse` deny), and `git push` / `gh pr create` stay blocked until Phase 9 passes:
 
-| Artefacto (en `work/<CLAVE>/`) | Lo produce | Desbloquea |
+| Artifact (in `work/<KEY>/`) | Produced by | Unlocks |
 |---|---|---|
-| `../_active` (contiene la CLAVE) | Fase 0 | identifica la tarea activa |
-| `fase-00-intake.md` | Fase 0 | — |
-| `fase-01-contraste.md` | Fase 1 | — |
-| `fase-02-matriz-impacto.md` | Fase 2 | — |
-| `fase-03-viabilidad.md` | Fase 3 | — |
-| `fase-04-veredicto.md` con línea `VEREDICTO: ✅` (o `⚠️`/`⛔`) | Fase 4 | — |
-| `fase-05-plan.md` | Fase 5 | **escrituras en el repo del API** (junto con todo lo anterior y veredicto ✅) |
-| `fase-09-pre-review.md` con línea `REVIEW-CODE: APPROVED` | Fase 9 | **`git push` / `gh pr create`** |
-| `REQUIERE-GATE-HUMANO` (nivel *riesgoso*) → `GATE-HUMANO-OK` | humano | el humano lo crea a mano (`touch`); **el agente tiene prohibido crearlo** |
+| `../_active` (contains the KEY) | Phase 0 | identifies the active task |
+| `phase-00-intake.md` | Phase 0 | — |
+| `phase-01-contrast.md` | Phase 1 | — |
+| `phase-02-impact-matrix.md` | Phase 2 | — |
+| `phase-03-feasibility.md` | Phase 3 | — |
+| `phase-04-verdict.md` with the line `VERDICT: ✅` (or `⚠️`/`⛔`) | Phase 4 | — |
+| `phase-05-plan.md` | Phase 5 | **writes to the API repo** (together with everything above and verdict ✅) |
+| `phase-09-pre-review.md` with the line `REVIEW-CODE: APPROVED` | Phase 9 | **`git push` / `gh pr create`** |
+| `HUMAN-GATE-REQUIRED` (*risky* level) → `HUMAN-GATE-OK` | human | the human creates it by hand (`touch`); **the agent is forbidden from creating it** |
 
-Reglas de integridad: los artefactos se escriben **al completar el trabajo de la fase, nunca
-antes** — escribir el marcador sin hacer el trabajo es falsificar el gate. Un veredicto `⚠️`/`⛔`
-en `fase-04-veredicto.md` mantiene el gate cerrado: el hook rechaza el código y el agente emite las
-preguntas bloqueantes. El estado del gate se inyecta en cada prompt (`hooks/pipeline-state.sh`),
-así que "no sabía en qué fase iba" no existe.
+Integrity rules: artifacts are written **upon completing the phase's work, never before** —
+writing the marker without doing the work is falsifying the gate. A `⚠️`/`⛔` verdict in
+`phase-04-verdict.md` keeps the gate closed: the hook rejects code and the agent surfaces the
+blocking questions. The gate state is injected into every prompt (`hooks/pipeline-state.sh`), so
+"I didn't know which phase I was in" does not exist.
 
-## Convenciones de este repo
+## Conventions of this repo
 
-- `.claude/` = **enforcement** (committeado, cada dev lo recibe al clonar): `settings.json` cablea
-  los hooks; `hooks/pipeline-state.sh` inyecta el estado del gate en cada prompt;
-  `hooks/guard-writes.sh` y `hooks/guard-bash.sh` bloquean escrituras/mutaciones del repo del API
-  y la publicación hasta cumplir el contrato de artefactos. Son un guard determinista, no un
-  sandbox: la capa externa siguen siendo el PR review y los permisos de GitHub.
-- `process/` = el proceso obligatorio, un archivo por fase. Se modifica solo por decisión de
-  equipo (retro de proceso, Fase 11.9).
-- Los archivos del proceso están en **español** (idioma del equipo); las citas a código y a los
-  repos hermanos conservan sus nombres reales.
-- `CLAUDE.md` se mantiene bajo ~200 líneas: aquí viven las *reglas*; el *procedimiento* vive en
-  `process/` y se carga bajo demanda (misma disciplina de progressive disclosure que el ApiLLM).
+- `.claude/` = **enforcement** (committed, so every dev gets it on clone): `settings.json` wires
+  the hooks; `hooks/pipeline-state.sh` injects the gate state into every prompt;
+  `hooks/guard-writes.sh` and `hooks/guard-bash.sh` block API-repo writes/mutations and
+  publication until the artifact contract is met. They are a deterministic guard, not a sandbox:
+  the outer layers remain PR review and GitHub permissions.
+- `process/` = the mandatory process, one file per phase. Modified only by team decision
+  (process retro, Phase 11.9).
+- Process files are written in **English**; citations to code and to the sibling repos keep their
+  real names.
+- `CLAUDE.md` stays under ~200 lines: the *rules* live here; the *procedure* lives in `process/`
+  and is loaded on demand (same progressive-disclosure discipline as the ApiLLM).

@@ -1,19 +1,19 @@
 # VivaAerobus.Generic.ApiLLMCoder
 
-Agente de **implementación** para `VivaAerobus.Generic.Api`. Dada una tarea de Jira, ejecuta el
-proceso obligatorio de 12 fases: analiza (fases 0–4), **se detiene si hay bloqueantes**, e
-implementa (fases 5–11) solo con veredicto ✅.
+**Implementation** agent for `VivaAerobus.Generic.Api`. Given a Jira task, it runs the mandatory
+12-phase process: analyzes (phases 0–4), **stops if there are blockers**, and implements
+(phases 5–11) only on a ✅ verdict.
 
-- **Punto de entrada:** [`CLAUDE.md`](CLAUDE.md) — el orquestador (pipeline, gate, layout de repos).
-- **El proceso:** [`process/`](process/) — un archivo por fase + anexos (checklist diario, ruta
-  hotfix, guía de implantación).
+- **Entry point:** [`CLAUDE.md`](CLAUDE.md) — the orchestrator (pipeline, gate, repo layout).
+- **The process:** [`process/`](process/) — one file per phase + annexes (daily checklist, hotfix
+  route, team adoption guide).
 
-Trabaja en conjunto con dos repos hermanos (mismo directorio padre):
+It works together with two sibling repos (same parent directory):
 
-| Repo | Rol |
+| Repo | Role |
 |---|---|
-| `../VivaAerobus.Generic.Api` | El código — donde se implementa |
-| `../VivaAerobus.Generic.ApiLLM` | Documentación evidenciada + pipeline de análisis (SYNC / ANALYZE-TASK / REVIEW-CODE / guidelines) |
+| `../VivaAerobus.Generic.Api` | The code — where implementation happens |
+| `../VivaAerobus.Generic.ApiLLM` | Evidence-cited documentation + analysis pipeline (SYNC / ANALYZE-TASK / REVIEW-CODE / guidelines) |
 
-Este repo **no documenta el sistema** (eso lo hace el pipeline del ApiLLM) y **no contiene código
-del API** — solo el proceso y los artefactos de trabajo por tarea (`work/<CLAVE>/`).
+This repo **does not document the system** (the ApiLLM pipeline does) and **holds no API code** —
+only the process and the per-task work artifacts (`work/<KEY>/`).

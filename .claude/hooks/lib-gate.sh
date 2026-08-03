@@ -10,15 +10,15 @@
 #
 # Artifact contract (fixed names, defined in ../CLAUDE.md):
 #   work/_active                        ← key of the task in progress (one line)
-#   work/<KEY>/fase-00-intake.md
-#   work/<KEY>/fase-01-contraste.md
-#   work/<KEY>/fase-02-matriz-impacto.md
-#   work/<KEY>/fase-03-viabilidad.md
-#   work/<KEY>/fase-04-veredicto.md     ← must contain "VEREDICTO: ✅" to open the gate
-#   work/<KEY>/fase-05-plan.md          ← required before any code write
-#   work/<KEY>/fase-09-pre-review.md    ← must contain "REVIEW-CODE: APPROVED" before push/PR
-#   work/<KEY>/REQUIERE-GATE-HUMANO     ← optional (riesgoso level): if present,
-#   work/<KEY>/GATE-HUMANO-OK             a HUMAN must create this file by hand
+#   work/<KEY>/phase-00-intake.md
+#   work/<KEY>/phase-01-contrast.md
+#   work/<KEY>/phase-02-impact-matrix.md
+#   work/<KEY>/phase-03-feasibility.md
+#   work/<KEY>/phase-04-verdict.md      ← must contain "VERDICT: ✅" to open the gate
+#   work/<KEY>/phase-05-plan.md         ← required before any code write
+#   work/<KEY>/phase-09-pre-review.md   ← must contain "REVIEW-CODE: APPROVED" before push/PR
+#   work/<KEY>/HUMAN-GATE-REQUIRED      ← optional (risky level): if present,
+#   work/<KEY>/HUMAN-GATE-OK              a HUMAN must create this file by hand
 #
 # Must stay bash-3.2 compatible (macOS default bash).
 
@@ -39,32 +39,32 @@ gate_active_key() {
 # line. Empty output = analysis gate satisfied.
 gate_missing_analysis() {
   KEY="$1"; DIR="$WORK_DIR/$KEY"
-  [ -f "$DIR/fase-00-intake.md" ]         || echo "work/$KEY/fase-00-intake.md (Fase 0)"
-  [ -f "$DIR/fase-01-contraste.md" ]      || echo "work/$KEY/fase-01-contraste.md (Fase 1)"
-  [ -f "$DIR/fase-02-matriz-impacto.md" ] || echo "work/$KEY/fase-02-matriz-impacto.md (Fase 2)"
-  [ -f "$DIR/fase-03-viabilidad.md" ]     || echo "work/$KEY/fase-03-viabilidad.md (Fase 3)"
-  if [ ! -f "$DIR/fase-04-veredicto.md" ]; then
-    echo "work/$KEY/fase-04-veredicto.md (Fase 4 — el GATE)"
-  elif ! grep -q "VEREDICTO: ✅" "$DIR/fase-04-veredicto.md" 2>/dev/null; then
-    if grep -q "VEREDICTO: ⚠️\|VEREDICTO: ⛔" "$DIR/fase-04-veredicto.md" 2>/dev/null; then
-      echo "VEREDICTO-NO-APROBADO"
+  [ -f "$DIR/phase-00-intake.md" ]        || echo "work/$KEY/phase-00-intake.md (Phase 0)"
+  [ -f "$DIR/phase-01-contrast.md" ]      || echo "work/$KEY/phase-01-contrast.md (Phase 1)"
+  [ -f "$DIR/phase-02-impact-matrix.md" ] || echo "work/$KEY/phase-02-impact-matrix.md (Phase 2)"
+  [ -f "$DIR/phase-03-feasibility.md" ]   || echo "work/$KEY/phase-03-feasibility.md (Phase 3)"
+  if [ ! -f "$DIR/phase-04-verdict.md" ]; then
+    echo "work/$KEY/phase-04-verdict.md (Phase 4 — the GATE)"
+  elif ! grep -q "VERDICT: ✅" "$DIR/phase-04-verdict.md" 2>/dev/null; then
+    if grep -q "VERDICT: ⚠️\|VERDICT: ⛔" "$DIR/phase-04-verdict.md" 2>/dev/null; then
+      echo "VERDICT-NOT-APPROVED"
     else
-      echo "work/$KEY/fase-04-veredicto.md sin linea 'VEREDICTO: ✅' (Fase 4)"
+      echo "work/$KEY/phase-04-verdict.md missing the 'VERDICT: ✅' line (Phase 4)"
     fi
   fi
-  [ -f "$DIR/fase-05-plan.md" ]           || echo "work/$KEY/fase-05-plan.md (Fase 5)"
-  if [ -f "$DIR/REQUIERE-GATE-HUMANO" ] && [ ! -f "$DIR/GATE-HUMANO-OK" ]; then
-    echo "GATE-HUMANO-PENDIENTE"
+  [ -f "$DIR/phase-05-plan.md" ]          || echo "work/$KEY/phase-05-plan.md (Phase 5)"
+  if [ -f "$DIR/HUMAN-GATE-REQUIRED" ] && [ ! -f "$DIR/HUMAN-GATE-OK" ]; then
+    echo "HUMAN-GATE-PENDING"
   fi
 }
 
 # Prints missing pre-review artifacts for push/PR. Empty = ok.
 gate_missing_prereview() {
   KEY="$1"; DIR="$WORK_DIR/$KEY"
-  if [ ! -f "$DIR/fase-09-pre-review.md" ]; then
-    echo "work/$KEY/fase-09-pre-review.md (Fase 9)"
-  elif ! grep -q "REVIEW-CODE: APPROVED" "$DIR/fase-09-pre-review.md" 2>/dev/null; then
-    echo "work/$KEY/fase-09-pre-review.md sin linea 'REVIEW-CODE: APPROVED' (Fase 9 — correr llm/REVIEW-CODE.md del ApiLLM)"
+  if [ ! -f "$DIR/phase-09-pre-review.md" ]; then
+    echo "work/$KEY/phase-09-pre-review.md (Phase 9)"
+  elif ! grep -q "REVIEW-CODE: APPROVED" "$DIR/phase-09-pre-review.md" 2>/dev/null; then
+    echo "work/$KEY/phase-09-pre-review.md missing the 'REVIEW-CODE: APPROVED' line (Phase 9 — run the ApiLLM's llm/REVIEW-CODE.md)"
   fi
 }
 
@@ -86,13 +86,13 @@ print(json.dumps({"hookSpecificOutput": {
 # Builds the full deny message for a code write, given the missing list.
 gate_deny_message() {
   KEY="$1"; MISSING="$2"; ACTION="$3"
-  if printf '%s' "$MISSING" | grep -q "VEREDICTO-NO-APROBADO"; then
-    printf '⛔ GATE (Fase 4): el veredicto registrado en work/%s/fase-04-veredicto.md es ⚠️/⛔. El pipeline exige DETENERSE: emitir las preguntas bloqueantes al usuario y NO %s. Solo un veredicto "VEREDICTO: ✅" (tras resolver los bloqueantes con el solicitante) abre el gate. Ver process/fase-04-bloqueantes.md.' "$KEY" "$ACTION"
+  if printf '%s' "$MISSING" | grep -q "VERDICT-NOT-APPROVED"; then
+    printf '⛔ GATE (Phase 4): the verdict recorded in work/%s/phase-04-verdict.md is ⚠️/⛔. The pipeline requires STOPPING: surface the blocking questions to the user and do NOT %s. Only a "VERDICT: ✅" (after resolving the blockers with the requester) opens the gate. See process/phase-04-blockers.md.' "$KEY" "$ACTION"
     return
   fi
-  if printf '%s' "$MISSING" | grep -q "GATE-HUMANO-PENDIENTE"; then
-    printf '⛔ GATE HUMANO: la tarea %s esta marcada como riesgosa (work/%s/REQUIERE-GATE-HUMANO). Un humano debe aprobar el plan creando el archivo work/%s/GATE-HUMANO-OK manualmente (touch work/%s/GATE-HUMANO-OK). El agente tiene PROHIBIDO crear ese archivo — pidele al usuario que lo cree si el plan ya fue revisado.' "$KEY" "$KEY" "$KEY" "$KEY"
+  if printf '%s' "$MISSING" | grep -q "HUMAN-GATE-PENDING"; then
+    printf '⛔ HUMAN GATE: task %s is flagged as risky (work/%s/HUMAN-GATE-REQUIRED). A human must approve the plan by creating work/%s/HUMAN-GATE-OK by hand (touch work/%s/HUMAN-GATE-OK). The agent is FORBIDDEN from creating that file — ask the user to create it once the plan has been reviewed.' "$KEY" "$KEY" "$KEY" "$KEY"
     return
   fi
-  printf '⛔ GATE DEL PIPELINE: no se puede %s — faltan artefactos de las fases 0-5 para la tarea %s:\n%s\nCompleta las fases en orden (process/fase-NN-*.md) y registra cada artefacto en work/%s/. El gate de la Fase 4 exige "VEREDICTO: ✅" antes de tocar codigo.' "$ACTION" "$KEY" "$MISSING" "$KEY"
+  printf '⛔ PIPELINE GATE: cannot %s — analysis artifacts for task %s are missing (phases 0-5):\n%s\nComplete the phases in order (process/phase-NN-*.md) and record each artifact in work/%s/. The Phase 4 gate requires "VERDICT: ✅" before touching code.' "$ACTION" "$KEY" "$MISSING" "$KEY"
 }

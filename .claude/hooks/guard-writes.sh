@@ -3,10 +3,10 @@
 #
 # Rule: NO file inside the code repo (../VivaAerobus.Generic.Api) may be
 # written until the analysis gate is open for the active task:
-#   fases 0-5 artifacts present in work/<KEY>/ + "VEREDICTO: ✅" in fase-04.
+#   phase 0-5 artifacts present in work/<KEY>/ + "VERDICT: ✅" in phase-04.
 # Writes anywhere else (this repo's work/, scratchpad, memory) pass through.
 #
-# Also: the agent must NEVER create work/*/GATE-HUMANO-OK — that file is the
+# Also: the agent must NEVER create work/*/HUMAN-GATE-OK — that file is the
 # human's signature. Any attempt is denied here.
 #
 # Classification uses python3 realpath (case-insensitive on darwin). Without
@@ -37,7 +37,7 @@ try:
     rel = os.path.relpath(cp, cc)
     if not (rel == ".." or rel.startswith(".." + os.sep)):
         print("CODE"); sys.exit(0)
-    if os.path.basename(p) == "GATE-HUMANO-OK":
+    if os.path.basename(p) == "HUMAN-GATE-OK":
         print("HUMANGATE"); sys.exit(0)
     print("OUTSIDE")
 except Exception:
@@ -45,7 +45,7 @@ except Exception:
   else
     FILE="$(printf '%s' "$INPUT" | sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
     [ -n "$FILE" ] || { echo "OUTSIDE"; return; }
-    case "$FILE" in *GATE-HUMANO-OK) echo "HUMANGATE"; return ;; esac
+    case "$FILE" in *HUMAN-GATE-OK) echo "HUMANGATE"; return ;; esac
     LOW_FILE="$(printf '%s' "$FILE" | tr '[:upper:]' '[:lower:]')"
     LOW_CODE="$(printf '%s' "$CODE_REPO" | tr '[:upper:]' '[:lower:]')"
     case "$LOW_FILE" in
@@ -63,15 +63,15 @@ except Exception:
 case "$(classify)" in
   OUTSIDE|"") exit 0 ;;
   HUMANGATE)
-    gate_deny "⛔ PROHIBIDO: GATE-HUMANO-OK es la firma del humano. El agente nunca lo crea — pide al usuario ejecutar: touch work/<CLAVE>/GATE-HUMANO-OK cuando haya revisado el plan." ;;
+    gate_deny "⛔ FORBIDDEN: HUMAN-GATE-OK is the human's signature. The agent never creates it — ask the user to run: touch work/<KEY>/HUMAN-GATE-OK once they have reviewed the plan." ;;
   CODE)
     KEY="$(gate_active_key || echo "")"
     if [ -z "$KEY" ]; then
-      gate_deny "⛔ GATE DEL PIPELINE: no hay tarea activa (work/_active no existe). Antes de tocar el repo del API: crear work/<CLAVE>/, escribir la clave en work/_active y completar las fases 0-5 (process/). Ver CLAUDE.md §Enforcement."
+      gate_deny "⛔ PIPELINE GATE: no active task (work/_active does not exist). Before touching the API repo: create work/<KEY>/, write the key into work/_active and complete phases 0-5 (process/). See CLAUDE.md §Enforcement."
     fi
     MISSING="$(gate_missing_analysis "$KEY")"
     if [ -n "$MISSING" ]; then
-      gate_deny "$(gate_deny_message "$KEY" "$MISSING" "escribir codigo en el repo del API")"
+      gate_deny "$(gate_deny_message "$KEY" "$MISSING" "write code in the API repo")"
     fi
     exit 0 ;;
 esac

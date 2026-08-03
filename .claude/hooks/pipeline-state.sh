@@ -7,15 +7,15 @@ set -uo pipefail
 HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HOOK_DIR/lib-gate.sh"
 
-echo "PIPELINE GATE (Coder) — estado determinista de work/:"
+echo "PIPELINE GATE (Coder) — deterministic state of work/:"
 
 if [ ! -d "$WORK_DIR" ] || [ -z "$(ls -A "$WORK_DIR" 2>/dev/null | grep -v '^_active$' || true)" ]; then
-  echo "- Sin tareas activas. Al recibir una tarea de Jira: crear work/<CLAVE>/, escribir la clave en work/_active y ejecutar las fases en orden (process/). El hook PreToolUse BLOQUEA toda escritura en el repo del API hasta que existan los artefactos de las fases 0-5 con 'VEREDICTO: ✅'."
+  echo "- No active tasks. When a Jira task arrives: create work/<KEY>/, write the key into work/_active and execute the phases in order (process/). The PreToolUse hook BLOCKS every write to the API repo until the phase 0-5 artifacts exist with 'VERDICT: ✅'."
   exit 0
 fi
 
 ACTIVE="$(gate_active_key || echo "")"
-[ -n "$ACTIVE" ] && echo "- Tarea activa (work/_active): $ACTIVE" || echo "- ⚠️ work/_active no existe — el gate denegara escrituras de codigo hasta definirlo."
+[ -n "$ACTIVE" ] && echo "- Active task (work/_active): $ACTIVE" || echo "- ⚠️ work/_active does not exist — the gate will deny code writes until it is set."
 
 for DIR in "$WORK_DIR"/*/; do
   [ -d "$DIR" ] || continue
@@ -24,17 +24,17 @@ for DIR in "$WORK_DIR"/*/; do
   if [ -z "$MISSING" ]; then
     PRE="$(gate_missing_prereview "$KEY")"
     if [ -z "$PRE" ]; then
-      echo "- $KEY: fases 0-5 completas ✅ · pre-review APPROVED ✅ — push/PR habilitado (fases 10-11 pendientes de evidencia)."
+      echo "- $KEY: phases 0-5 complete ✅ · pre-review APPROVED ✅ — push/PR enabled (phases 10-11 still owe their evidence)."
     else
-      echo "- $KEY: fases 0-5 completas ✅ — implementacion habilitada. Push/PR BLOQUEADO: falta $PRE"
+      echo "- $KEY: phases 0-5 complete ✅ — implementation enabled. Push/PR BLOCKED: missing $PRE"
     fi
-  elif printf '%s' "$MISSING" | grep -q "VEREDICTO-NO-APROBADO"; then
-    echo "- $KEY: ⛔ DETENIDA en el gate (veredicto ⚠️/⛔ en fase-04-veredicto.md). Emitir preguntas bloqueantes; NO codificar."
+  elif printf '%s' "$MISSING" | grep -q "VERDICT-NOT-APPROVED"; then
+    echo "- $KEY: ⛔ STOPPED at the gate (verdict ⚠️/⛔ in phase-04-verdict.md). Surface the blocking questions; do NOT code."
   else
     N=$(printf '%s\n' "$MISSING" | grep -c . || true)
-    echo "- $KEY: gate CERRADO — faltan $N artefacto(s) de analisis: $(printf '%s' "$MISSING" | tr '\n' ';' )"
+    echo "- $KEY: gate CLOSED — $N analysis artifact(s) missing: $(printf '%s' "$MISSING" | tr '\n' ';' )"
   fi
 done
 
-echo "Regla: las fases se ejecutan en orden y cada una deja su artefacto en work/<CLAVE>/ ANTES de pasar a la siguiente (contrato en CLAUDE.md). Escribir un artefacto sin haber hecho el trabajo de la fase es falsificar el gate — prohibido."
+echo "Rule: phases run in order and each one records its artifact in work/<KEY>/ BEFORE moving to the next (contract in CLAUDE.md). Writing an artifact without having done the phase's work is falsifying the gate — forbidden."
 exit 0
