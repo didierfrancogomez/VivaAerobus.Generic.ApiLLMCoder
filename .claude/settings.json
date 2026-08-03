@@ -1,4 +1,10 @@
 {
+  "permissions": {
+    "additionalDirectories": [
+      "../VivaAerobus.Generic.Api",
+      "../VivaAerobus.Generic.ApiLLM"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {

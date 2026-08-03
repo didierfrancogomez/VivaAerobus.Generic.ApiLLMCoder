@@ -12,10 +12,16 @@
 #     merge/rebase/cherry-pick, dotnet new/add) → require the analysis gate
 #     (phases 0-5 + VERDICT ✅).
 #   - publication (git push, gh pr create/merge) → additionally require
-#     phase-09-pre-review.md with "REVIEW-CODE: APPROVED".
+#     phase-07-testing.md with "TESTS: GREEN" and phase-09-pre-review.md with
+#     "REVIEW-CODE: APPROVED" + "VALIDATED-SHA: <commit>", and the code repo's
+#     HEAD must still BE that commit (diff-drift check: code changed after
+#     approval ⇒ the approval is void, re-run REVIEW-CODE.md).
 #   - read-only (git log/diff/status, grep, ls, cat, dotnet build/test) → pass.
-# Everything not referencing the code repo passes through, except creating
-# HUMAN-GATE-OK (the human's signature — always denied to the agent).
+# Everything not referencing the code repo passes through, except:
+#   - creating HUMAN-GATE-OK / _PROCESS-CHANGE-OK (the human's signature —
+#     always denied to the agent), and
+#   - shell mutations of this repo's protected process surface (process/,
+#     CLAUDE.md, .claude/) without work/_PROCESS-CHANGE-OK.
 #
 # Known limit (documented, accepted — same stance as ApiLLM protect-paths.sh):
 # pattern-matching a shell command is a guard, not a sandbox. Exotic quoting
@@ -35,9 +41,20 @@ except Exception:
     print("")' 2>/dev/null)"
 [ -n "$CMD" ] || exit 0
 
-# The agent must never sign the human gate, wherever the file lives.
-if printf '%s' "$CMD" | grep -Eq 'HUMAN-GATE-OK'; then
-  gate_deny "⛔ FORBIDDEN: HUMAN-GATE-OK is the human's signature. The agent never creates or touches it — ask the user to run: touch work/<KEY>/HUMAN-GATE-OK."
+# The agent must never sign the human gates, wherever the files live.
+if printf '%s' "$CMD" | grep -Eq 'HUMAN-GATE-OK|_PROCESS-CHANGE-OK|PUSH-APPROVED'; then
+  gate_deny "⛔ FORBIDDEN: HUMAN-GATE-OK, PUSH-APPROVED and _PROCESS-CHANGE-OK are the human's signature. The agent never creates or touches them — ask the user to run the touch command themselves."
+fi
+
+# Protected process surface of THIS repo (process/, CLAUDE.md, .claude/):
+# shell mutations are denied unless the human created work/_PROCESS-CHANGE-OK.
+# Pattern guard, not a sandbox — same documented stance as the code-repo rules.
+if [ ! -f "$WORK_DIR/_PROCESS-CHANGE-OK" ]; then
+  PROT_PATH='((\.{1,2}/)*|[^ ;&|"'"'"']*apillmcoder/)(process/[^ ;&|]+|\.claude/[^ ;&|]+|CLAUDE\.md)'
+  if printf '%s' "$CMD" | grep -Eiq "(^|[;&| ])(rm|mv|cp|touch|tee|patch|ln|sed +-i[^ ]*)( +[^;&|]*)? $PROT_PATH" || \
+     printf '%s' "$CMD" | grep -Eiq ">>?[[:space:]]*$PROT_PATH"; then
+    gate_deny "⛔ PROTECTED SURFACE: process/, CLAUDE.md and .claude/ change only by team decision (CLAUDE.md §Conventions; Phase 11.9 retro). Ask the user to authorize with: touch work/_PROCESS-CHANGE-OK (and to delete it when done)."
+  fi
 fi
 
 # Does the command reference the CODE repo (and not only the LLM/Coder repos)?
@@ -73,7 +90,15 @@ fi
 if [ "$PUBLISHES" = "1" ]; then
   PRE="$(gate_missing_prereview "$KEY")"
   if [ -n "$PRE" ]; then
-    gate_deny "⛔ PRE-REVIEW GATE (Phase 9): cannot publish (push / PR) — missing: $PRE. Run the ApiLLM's local validator llm/REVIEW-CODE.md on the diff; only with APPROVED do you record 'REVIEW-CODE: APPROVED' in work/$KEY/phase-09-pre-review.md, which enables publication."
+    gate_deny "⛔ PRE-PUBLICATION GATE (Phases 7+9): cannot publish (push / PR) — missing: $(printf '%s' "$PRE" | tr '\n' ';'). Phase 7: run the FULL suite green and record 'TESTS: GREEN' in work/$KEY/phase-07-testing.md. Phase 9: run the ApiLLM's local validator llm/REVIEW-CODE.md on the diff; only with APPROVED do you record 'REVIEW-CODE: APPROVED' plus 'VALIDATED-SHA: <commit>' in work/$KEY/phase-09-pre-review.md."
+  fi
+  DRIFT="$(gate_sha_drift "$KEY")"
+  if [ -n "$DRIFT" ]; then
+    gate_deny "⛔ DIFF DRIFT (Phase 9): the code changed after the REVIEW-CODE approval ($DRIFT). The approval is void — re-run llm/REVIEW-CODE.md on the current diff, and only with APPROVED update 'VALIDATED-SHA:' in work/$KEY/phase-09-pre-review.md."
+  fi
+  APPROVAL="$(gate_missing_push_approval "$KEY")"
+  if [ -n "$APPROVAL" ]; then
+    gate_deny "⛔ USER APPROVAL GATE (Phase 10): publication (push / PR) requires the user's explicit approval — missing: $APPROVAL. Present the user the squashed commit, the Phase 9 result and the PR summary, and WAIT for them to create the file. The agent never creates it."
   fi
 fi
 exit 0

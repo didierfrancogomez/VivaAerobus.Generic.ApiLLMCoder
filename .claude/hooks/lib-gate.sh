@@ -8,23 +8,35 @@
 # skipping a phase impossible by accident: the write is denied until the
 # artifact exists.
 #
-# Artifact contract (fixed names, defined in ../CLAUDE.md):
+# Artifact contract (fixed names, defined in ../CLAUDE.md). Every marker line
+# is matched ANCHORED at column 0 — a quoted template or an indented copy does
+# not open a gate:
 #   work/_active                        ← key of the task in progress (one line)
 #   work/<KEY>/phase-00-intake.md
 #   work/<KEY>/phase-01-contrast.md
 #   work/<KEY>/phase-02-impact-matrix.md
 #   work/<KEY>/phase-03-feasibility.md
-#   work/<KEY>/phase-04-verdict.md      ← must contain "VERDICT: ✅" to open the gate
+#   work/<KEY>/phase-04-verdict.md      ← exactly ONE line "VERDICT: ..." — "VERDICT: ✅" opens the gate
 #   work/<KEY>/phase-05-plan.md         ← required before any code write
-#   work/<KEY>/phase-09-pre-review.md   ← must contain "REVIEW-CODE: APPROVED" before push/PR
+#   work/<KEY>/phase-07-testing.md      ← must contain "TESTS: GREEN" before push/PR
+#   work/<KEY>/phase-09-pre-review.md   ← must contain "REVIEW-CODE: APPROVED",
+#                                         "VALIDATED-SHA: <commit>", "COMPLETENESS: VERIFIED"
+#                                         and "DEVIATIONS: NONE|APPROVED-AND-DOCUMENTED"
+#                                         before push/PR; push is denied if HEAD drifted
+#                                         from the validated commit
+#   work/<KEY>/PUSH-APPROVED            ← the USER's explicit approval to publish
+#                                         (push + PR) — a human creates it by hand
 #   work/<KEY>/HUMAN-GATE-REQUIRED      ← optional (risky level): if present,
 #   work/<KEY>/HUMAN-GATE-OK              a HUMAN must create this file by hand
+#   work/_PROCESS-CHANGE-OK             ← human-created: unlocks edits to the process
+#                                         surface (process/, CLAUDE.md, .claude/)
 #
 # Must stay bash-3.2 compatible (macOS default bash).
 
 GATE_HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CODER_ROOT="$(cd "$GATE_HOOK_DIR/../.." && pwd)"
-WORK_DIR="$CODER_ROOT/work"
+# CODER_GATE_WORK_DIR overrides the work dir (used by the hook test suite).
+WORK_DIR="${CODER_GATE_WORK_DIR:-$CODER_ROOT/work}"
 
 # The code repo is a sibling folder. Note: its name is a prefix of this repo's
 # name and of the ApiLLM repo's name — match it exactly, never by substring.
@@ -69,8 +81,16 @@ gate_missing_analysis() {
   [ -f "$DIR/phase-03-feasibility.md" ]   || echo "work/$KEY/phase-03-feasibility.md (Phase 3)"
   if [ ! -f "$DIR/phase-04-verdict.md" ]; then
     echo "work/$KEY/phase-04-verdict.md (Phase 4 — the GATE)"
-  elif ! grep -q "VERDICT: ✅" "$DIR/phase-04-verdict.md" 2>/dev/null; then
-    if grep -q "VERDICT: ⚠️\|VERDICT: ⛔" "$DIR/phase-04-verdict.md" 2>/dev/null; then
+  else
+    # Anchored + exactly-one: a quoted template ("  VERDICT: ✅") or a stale
+    # second verdict line must never open the gate.
+    N_VERDICT="$(grep -c '^VERDICT: ' "$DIR/phase-04-verdict.md" 2>/dev/null || true)"
+    if [ "$N_VERDICT" != "1" ]; then
+      echo "work/$KEY/phase-04-verdict.md must contain exactly ONE line starting with 'VERDICT: ' at column 0 (found: ${N_VERDICT:-0}) (Phase 4)"
+    elif grep -q '^VERDICT: ✅' "$DIR/phase-04-verdict.md" 2>/dev/null; then
+      : # gate open
+    elif grep -q '^VERDICT: ⚠' "$DIR/phase-04-verdict.md" 2>/dev/null || \
+         grep -q '^VERDICT: ⛔' "$DIR/phase-04-verdict.md" 2>/dev/null; then
       echo "VERDICT-NOT-APPROVED"
     else
       echo "work/$KEY/phase-04-verdict.md missing the 'VERDICT: ✅' line (Phase 4)"
@@ -82,14 +102,52 @@ gate_missing_analysis() {
   fi
 }
 
-# Prints missing pre-review artifacts for push/PR. Empty = ok.
+# Prints missing pre-publication artifacts for push/PR (phases 7 and 9).
+# Empty = ok.
 gate_missing_prereview() {
   KEY="$1"; DIR="$WORK_DIR/$KEY"
+  if [ ! -f "$DIR/phase-07-testing.md" ]; then
+    echo "work/$KEY/phase-07-testing.md (Phase 7)"
+  elif ! grep -q '^TESTS: GREEN' "$DIR/phase-07-testing.md" 2>/dev/null; then
+    echo "work/$KEY/phase-07-testing.md missing the 'TESTS: GREEN' line (Phase 7 — run the FULL suite and record its output)"
+  fi
   if [ ! -f "$DIR/phase-09-pre-review.md" ]; then
     echo "work/$KEY/phase-09-pre-review.md (Phase 9)"
-  elif ! grep -q "REVIEW-CODE: APPROVED" "$DIR/phase-09-pre-review.md" 2>/dev/null; then
-    echo "work/$KEY/phase-09-pre-review.md missing the 'REVIEW-CODE: APPROVED' line (Phase 9 — run the ApiLLM's llm/REVIEW-CODE.md)"
+  else
+    grep -q '^REVIEW-CODE: APPROVED' "$DIR/phase-09-pre-review.md" 2>/dev/null || \
+      echo "work/$KEY/phase-09-pre-review.md missing the 'REVIEW-CODE: APPROVED' line (Phase 9 — run the ApiLLM's llm/REVIEW-CODE.md)"
+    grep -q '^VALIDATED-SHA: ' "$DIR/phase-09-pre-review.md" 2>/dev/null || \
+      echo "work/$KEY/phase-09-pre-review.md missing the 'VALIDATED-SHA: <commit>' line (Phase 9 — anchors the approval to the reviewed commit: git -C <code-repo> rev-parse HEAD)"
+    grep -q '^COMPLETENESS: VERIFIED' "$DIR/phase-09-pre-review.md" 2>/dev/null || \
+      echo "work/$KEY/phase-09-pre-review.md missing the 'COMPLETENESS: VERIFIED' line (Phase 9 — re-validate Jira task + plan + code: nothing left uninvolved)"
+    grep -Eq '^DEVIATIONS: (NONE|APPROVED-AND-DOCUMENTED)' "$DIR/phase-09-pre-review.md" 2>/dev/null || \
+      echo "work/$KEY/phase-09-pre-review.md missing the 'DEVIATIONS: NONE' or 'DEVIATIONS: APPROVED-AND-DOCUMENTED' line (Phase 9 — no deviation without user approval; approved ones documented in the plan)"
   fi
+}
+
+# The USER's explicit approval to publish (push + PR). Human-created file —
+# the agent is forbidden from creating it. Prints what is missing; empty = ok.
+gate_missing_push_approval() {
+  KEY="$1"
+  [ -f "$WORK_DIR/$KEY/PUSH-APPROVED" ] || \
+    echo "work/$KEY/PUSH-APPROVED (the user's publication approval — ask the user; they create it: touch work/$KEY/PUSH-APPROVED)"
+}
+
+# Diff-drift check: the commit approved in Phase 9 must be the code repo's
+# current HEAD at publication time. Prints a description of the drift; empty =
+# no drift (or no SHA recorded — that case is reported by
+# gate_missing_prereview). Abbreviated SHAs (>= 7 hex chars) are accepted as a
+# prefix of HEAD.
+gate_sha_drift() {
+  KEY="$1"; DIR="$WORK_DIR/$KEY"
+  WANT="$(sed -n 's/^VALIDATED-SHA:[[:space:]]*//p' "$DIR/phase-09-pre-review.md" 2>/dev/null | head -1 | tr -d '[:space:]')"
+  [ -n "$WANT" ] || return 0
+  HAVE="$(git -C "$CODE_REPO" rev-parse HEAD 2>/dev/null || true)"
+  [ -n "$HAVE" ] || return 0
+  if [ "${#WANT}" -ge 7 ]; then
+    case "$HAVE" in "$WANT"*) return 0 ;; esac
+  fi
+  printf 'approved commit %s vs current HEAD %s' "$WANT" "$HAVE"
 }
 
 # Emits a PreToolUse deny decision and exits 0 (Claude Code reads the JSON).

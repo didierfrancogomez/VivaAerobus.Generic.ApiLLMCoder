@@ -6,8 +6,13 @@
 #   phase 0-5 artifacts present in work/<KEY>/ + "VERDICT: ✅" in phase-04.
 # Writes anywhere else (this repo's work/, scratchpad, memory) pass through.
 #
-# Also: the agent must NEVER create work/*/HUMAN-GATE-OK — that file is the
-# human's signature. Any attempt is denied here.
+# Also: the agent must NEVER create work/*/HUMAN-GATE-OK nor
+# work/_PROCESS-CHANGE-OK — those files are the human's signature. Any attempt
+# is denied here.
+#
+# Protected process surface: this repo's process/, CLAUDE.md and .claude/
+# change only by team decision (CLAUDE.md §Conventions, Phase 11.9 retro).
+# Writes there are denied unless the human has created work/_PROCESS-CHANGE-OK.
 #
 # Classification uses python3 realpath (case-insensitive on darwin). Without
 # python3 the fallback classifies by string prefix and FAILS CLOSED for
@@ -32,24 +37,35 @@ try:
     if not os.path.isabs(p):
         p = os.path.join(os.getcwd(), p)
     p = os.path.realpath(p)
-    code = os.path.realpath(sys.argv[1])
-    cp, cc = (p.lower(), code.lower()) if sys.platform == "darwin" else (p, code)
-    rel = os.path.relpath(cp, cc)
-    if not (rel == ".." or rel.startswith(".." + os.sep)):
-        print("CODE"); sys.exit(0)
-    if os.path.basename(p) == "HUMAN-GATE-OK":
+    if os.path.basename(p) in ("HUMAN-GATE-OK", "_PROCESS-CHANGE-OK", "PUSH-APPROVED"):
         print("HUMANGATE"); sys.exit(0)
+    norm = (lambda s: s.lower()) if sys.platform == "darwin" else (lambda s: s)
+    def under(child, parent):
+        rel = os.path.relpath(norm(child), norm(os.path.realpath(parent)))
+        return not (rel == ".." or rel.startswith(".." + os.sep))
+    if under(p, sys.argv[1]):
+        print("CODE"); sys.exit(0)
+    coder = sys.argv[2]
+    if (under(p, os.path.join(coder, "process"))
+            or under(p, os.path.join(coder, ".claude"))
+            or norm(p) == norm(os.path.realpath(os.path.join(coder, "CLAUDE.md")))):
+        print("PROTECTED"); sys.exit(0)
     print("OUTSIDE")
 except Exception:
-    print("")' "$CODE_REPO" 2>/dev/null
+    print("")' "$CODE_REPO" "$CODER_ROOT" 2>/dev/null
   else
     FILE="$(printf '%s' "$INPUT" | sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
     [ -n "$FILE" ] || { echo "OUTSIDE"; return; }
-    case "$FILE" in *HUMAN-GATE-OK) echo "HUMANGATE"; return ;; esac
+    case "$FILE" in *HUMAN-GATE-OK|*_PROCESS-CHANGE-OK|*PUSH-APPROVED) echo "HUMANGATE"; return ;; esac
     LOW_FILE="$(printf '%s' "$FILE" | tr '[:upper:]' '[:lower:]')"
     LOW_CODE="$(printf '%s' "$CODE_REPO" | tr '[:upper:]' '[:lower:]')"
+    LOW_CODER="$(printf '%s' "$CODER_ROOT" | tr '[:upper:]' '[:lower:]')"
     case "$LOW_FILE" in
-      "$LOW_CODE"|"$LOW_CODE/"*) echo "CODE" ;;
+      "$LOW_CODE"|"$LOW_CODE/"*) echo "CODE"; return ;;
+      "$LOW_CODER/process/"*|"$LOW_CODER/.claude/"*|"$LOW_CODER/claude.md") echo "PROTECTED"; return ;;
+      *"vivaaerobus.generic.apillmcoder/process/"*|*"vivaaerobus.generic.apillmcoder/.claude/"*|*"vivaaerobus.generic.apillmcoder/claude.md") echo "PROTECTED"; return ;;
+    esac
+    case "$LOW_FILE" in
       *"vivaaerobus.generic.api/"*)
         case "$LOW_FILE" in
           *"vivaaerobus.generic.apillm"*) echo "OUTSIDE" ;;   # ApiLLM / ApiLLMCoder
@@ -63,7 +79,10 @@ except Exception:
 case "$(classify)" in
   OUTSIDE|"") exit 0 ;;
   HUMANGATE)
-    gate_deny "⛔ FORBIDDEN: HUMAN-GATE-OK is the human's signature. The agent never creates it — ask the user to run: touch work/<KEY>/HUMAN-GATE-OK once they have reviewed the plan." ;;
+    gate_deny "⛔ FORBIDDEN: HUMAN-GATE-OK, PUSH-APPROVED and _PROCESS-CHANGE-OK are the human's signature. The agent never creates them — ask the user to run the touch command once they have reviewed the plan, the publication or the process change." ;;
+  PROTECTED)
+    [ -f "$WORK_DIR/_PROCESS-CHANGE-OK" ] && exit 0
+    gate_deny "⛔ PROTECTED SURFACE: process/, CLAUDE.md and .claude/ define the team's mandatory process — they change only by team decision (CLAUDE.md §Conventions; Phase 11.9 retro). Ask the user to authorize the agreed change by running: touch work/_PROCESS-CHANGE-OK (and to delete that file when the change is done)." ;;
   CODE)
     RES="$(gate_task_key || echo "")"
     if [ -z "$RES" ]; then

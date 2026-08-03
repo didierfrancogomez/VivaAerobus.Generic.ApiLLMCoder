@@ -9,7 +9,11 @@ HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "PIPELINE GATE (Coder) — deterministic state of work/:"
 
-if [ ! -d "$WORK_DIR" ] || [ -z "$(ls -A "$WORK_DIR" 2>/dev/null | grep -v '^_active$' || true)" ]; then
+if [ -f "$WORK_DIR/_PROCESS-CHANGE-OK" ]; then
+  echo "- ⚠️ _PROCESS-CHANGE-OK is present: the process surface (process/, CLAUDE.md, .claude/) is UNLOCKED for edits. Delete the file as soon as the agreed change is done."
+fi
+
+if [ ! -d "$WORK_DIR" ] || [ -z "$(ls -A "$WORK_DIR" 2>/dev/null | grep -v '^_active$\|^_PROCESS-CHANGE-OK$' || true)" ]; then
   echo "- No active tasks. When a Jira task arrives: create work/<KEY>/, write the key into work/_active and execute the phases in order (process/). The PreToolUse hook BLOCKS every write to the API repo until the phase 0-5 artifacts exist with 'VERDICT: ✅'."
   exit 0
 fi
@@ -28,9 +32,17 @@ for DIR in "$WORK_DIR"/*/; do
   if [ -z "$MISSING" ]; then
     PRE="$(gate_missing_prereview "$KEY")"
     if [ -z "$PRE" ]; then
-      echo "- $KEY: phases 0-5 complete ✅ · pre-review APPROVED ✅ — push/PR enabled (phases 10-11 still owe their evidence)."
+      DRIFT="$(gate_sha_drift "$KEY")"
+      APPROVAL="$(gate_missing_push_approval "$KEY")"
+      if [ -n "$DRIFT" ]; then
+        echo "- $KEY: phases 0-5 complete ✅ · tests+pre-review recorded, but ⛔ DIFF DRIFT ($DRIFT) — the approval is void; re-run REVIEW-CODE.md and update VALIDATED-SHA."
+      elif [ -n "$APPROVAL" ]; then
+        echo "- $KEY: phases 0-5 complete ✅ · tests GREEN ✅ · pre-review APPROVED ✅ (SHA anchored) — push/PR WAITING for the user's approval: $APPROVAL"
+      else
+        echo "- $KEY: phases 0-5 complete ✅ · tests GREEN ✅ · pre-review APPROVED ✅ · user approved publication ✅ — push/PR enabled (phases 10-11 still owe their evidence)."
+      fi
     else
-      echo "- $KEY: phases 0-5 complete ✅ — implementation enabled. Push/PR BLOCKED: missing $PRE"
+      echo "- $KEY: phases 0-5 complete ✅ — implementation enabled. Push/PR BLOCKED: missing $(printf '%s' "$PRE" | tr '\n' ';')"
     fi
   elif printf '%s' "$MISSING" | grep -q "VERDICT-NOT-APPROVED"; then
     echo "- $KEY: ⛔ STOPPED at the gate (verdict ⚠️/⛔ in phase-04-verdict.md). Surface the blocking questions; do NOT code."
