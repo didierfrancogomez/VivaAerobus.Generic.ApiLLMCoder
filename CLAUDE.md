@@ -130,6 +130,11 @@ repo running `/implement <KEY>`**; a human-owned step is never claimed done).
 - **Validation runs are immutable:** rework starts with `tools/new-run.sh <KEY>` — it archives
   phase-07/09 + `PUSH-APPROVED` into `work/<KEY>/validation/run-NNN/` (never edited, never
   reused as evidence) and mechanically re-closes the publication gates.
+- **Progress is versioned and resumable.** Closing a phase ends with
+  `tools/save-progress.sh <KEY> "<phase>"` — commits + pushes `work/<KEY>/` — and the agent
+  **tells the user the folder** (`work/<KEY>/`, board `delivery-state.md`) so they can resume
+  anytime with `/implement <KEY>`. Never versioned (gitignore): human signatures
+  (`PUSH-APPROVED`, `HUMAN-GATE-OK`, `_PROCESS-CHANGE-OK`), `_active`, ticket dumps/attachments.
 
 ### Scaling rigor to risk
 
@@ -204,9 +209,9 @@ approval** (`PUSH-APPROVED`, Phase 10 §10.0).
   (process retro, Phase 11.9) — **hook-enforced**: writes to `process/`, `CLAUDE.md` and
   `.claude/` are denied unless the human has created `work/_PROCESS-CHANGE-OK` (and deletes it
   when the agreed change is done).
-- `work/` is gitignored (it may hold ticket/customer data) — until a phase artifact's content is
-  posted to Jira, it is the only copy: never prune `work/<KEY>/` while the ticket is open
-  (Annex D §D.3).
+- `work/` is **versioned** (progress = resumable memory; Annex D §D.3) — except human
+  signatures, `_active` and ticket dumps (see `.gitignore`). Authored artifacts never contain
+  credentials; never prune `work/<KEY>/` while the ticket is open.
 - Process files are written in **English**; citations to code and to the sibling repos keep their
   real names.
 - `CLAUDE.md` stays under ~200 lines: the *rules* live here; the *procedure* lives in `process/`

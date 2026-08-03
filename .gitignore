@@ -1,4 +1,18 @@
-# Artefactos de trabajo por tarea — pueden contener datos de tickets/clientes; no se versionan
-work/
+# work/ IS versioned (process artifacts are the resumable memory of each task —
+# same model as psyco-api's feature workspaces). What stays OUT:
+#
+# - per-machine pointers and HUMAN SIGNATURES: committing a signature would open
+#   a gate on somebody else's clone that their user never approved
+work/_active
+work/_PROCESS-CHANGE-OK
+work/*/PUSH-APPROVED
+work/*/HUMAN-GATE-OK
+# - anything dumped from the ticket or captured as raw evidence: it routinely
+#   contains client data / test-user credentials pasted into comments. The
+#   authored artifacts (intake, matrices, plan, verdicts, delivery-state) must
+#   never contain credentials (Phase 0 §0.0.3) — that is what makes them safe
+#   to version.
+work/*/attachments/
+work/*/jira_tickets/
 
 .DS_Store

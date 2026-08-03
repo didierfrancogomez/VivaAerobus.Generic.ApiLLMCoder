@@ -39,15 +39,22 @@ review, fixes applied) covers Jira. The rules per direction:
    hand) flips it to `posted <date>`.
 4. **Other state changes** ("mark it Blocked") remain explicit requests to the user.
 
-## D.3 Persistence — do not lose the analysis
+## D.3 Persistence — progress is versioned and resumable
 
-`work/` is **gitignored** (it may contain ticket/customer data). Until Jira publication is
-confirmed, the artifacts in `work/<KEY>/` are the ONLY copy of the analysis. Therefore:
+`work/` **is versioned and pushed** (same model as psyco-api's feature workspaces): closing any
+phase ends with `tools/save-progress.sh <KEY> "<phase>"`, and the agent tells the user, every
+time, **where the progress lives** — `work/<KEY>/` with `delivery-state.md` as the resumable
+board — and how to resume: `/implement <KEY>` from any clone, any machine, any session.
 
-- Never delete or prune `work/<KEY>/` while the ticket is open or any `PUBLICATION: pending`
-  remains.
+What is NEVER versioned (`.gitignore`): human signatures (`PUSH-APPROVED`, `HUMAN-GATE-OK`,
+`_PROCESS-CHANGE-OK` — a committed signature would open a gate on a clone whose user never
+approved), the per-machine `_active` pointer, and ticket dumps / raw attachments (they routinely
+carry client data and test-user credentials). The authored artifacts are safe to version
+precisely because Phase 0 §0.0.3 forbids copying credentials into them — that rule is what the
+versioning rests on; check it before every save.
+
+- Never delete or prune `work/<KEY>/` while the ticket is open.
 - Artifacts are written self-contained (full comment text inside, not references to chat).
-- If a work folder must move machines, the user carries it — it is never committed.
 
 ## D.4 Ownership map (per phase)
 

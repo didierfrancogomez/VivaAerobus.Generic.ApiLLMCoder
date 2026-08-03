@@ -2,7 +2,8 @@
 
 > Compressed version of the full process. Each block maps to its phase (`phase-NN-*.md`).
 > The gate is still alive here: if the **Blockers** block is not clean, you do not move on to
-> **Plan**.
+> **Plan**. **Every block closes with `tools/save-progress.sh <KEY> "<phase>"`** and telling the
+> user the folder (`work/<KEY>/`) — progress that only lives on one disk is not progress.
 
 **Understand** (Phase 0)
 - [ ] `tools/new-task.sh <KEY>` ran: scaffold + ticket fetched + `ready` gate (blockers → ask, don't start)

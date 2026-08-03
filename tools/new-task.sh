@@ -47,3 +47,4 @@ else
 fi
 
 echo "Next: process/phase-00-intake.md (artifacts skeleton: process/_templates/phase-artifact.md)"
+echo "Close EVERY phase with: tools/save-progress.sh $KEY \"<phase>\" — progress is versioned; resume anytime with /implement $KEY"

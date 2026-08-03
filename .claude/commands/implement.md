@@ -16,7 +16,11 @@ Hard sequence:
    do not improvise a test plan. Research ticket → the research route (Phase 0 §0.1): written
    finding, no PR.
 1. **Stage A — phases 0–4** (`process/phase-00` … `phase-04`), each recording its artifact from
-   `process/_templates/phase-artifact.md` and updating `delivery-state.md`. Phase 1 syncs the
+   `process/_templates/phase-artifact.md`, updating `delivery-state.md`, and **closing with
+   `tools/save-progress.sh $ARGUMENTS "<phase>"`** — then tell the user the folder
+   (`work/$ARGUMENTS/`) so they can resume anytime. Same at every phase close in Stage B.
+   If `work/$ARGUMENTS/` already exists, this IS a resume: read `delivery-state.md` first and
+   continue from `current_phase` — never restart phases that already passed. Phase 1 syncs the
    ApiLLM first. The Phase 4 gate: verdict ⚠️/⛔ → **STOP**, surface the questions, no code.
 2. **Stage B — phases 5–11** only with `VERDICT: ✅` (the hooks enforce it): numbered plan
    (`_templates/plan.md`, guideline IDs cited) → implement on `feature/$ARGUMENTS/<kebab-slug>`
