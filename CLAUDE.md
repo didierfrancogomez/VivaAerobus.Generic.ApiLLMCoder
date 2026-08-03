@@ -9,7 +9,7 @@
 
 ---
 
-## ⚠️ NON-NEGOTIABLE — The four rules that never break
+## ⚠️ NON-NEGOTIABLE — The five rules that never break
 
 1. **Analysis before code, always.** Phases 0–4 are completed BEFORE writing a single line. The
    Phase 4 gate decides: open hard blockers → **STOP and ask**; verdict ✅ and zero blockers →
@@ -23,7 +23,13 @@
    §"NON-NEGOTIABLE — Evidence first": never assume, never infer from names, every claim is cited
    against the code (`path/File.cs :: Symbol`), the unknown is written as `unknown`, and every
    ambiguity is a **blocking question**, never a unilateral decision.
-4. **GOLDEN RULE — the LLM repo's guidelines govern HOW code is implemented.** The technical
+4. **GOLDEN RULE — never work on a stale main.** `main` is the default branch and the only one
+   this repo works on. Before attending ANY request, this repo is brought to `origin/main`'s
+   latest commit — automated by `hooks/self-update.sh` (SessionStart + every prompt,
+   fast-forward only, never destroys local work). If it reports ⛔ (offline, diverged, wrong
+   branch), the request is **not attended** until the state is reconciled — or the user
+   explicitly accepts working from the local copy.
+5. **GOLDEN RULE — the LLM repo's guidelines govern HOW code is implemented.** The technical
    specification of how code MUST be written lives in
    `../VivaAerobus.Generic.ApiLLM/guidelines/**` (the 90 normative `STY`/`ARC`/`ROB`/`PRC` rules
    from real PR reviews) plus `documents/architecture/conventions.md` and `patterns-cqrs.md`. The
@@ -198,7 +204,8 @@ approval** (`PUSH-APPROVED`, Phase 10 §10.0).
 ## Conventions of this repo
 
 - `.claude/` = **enforcement** (committed): `settings.json` wires the hooks (+ sibling-repo
-  `additionalDirectories`); `pipeline-state.sh` injects the gate state into every prompt;
+  `additionalDirectories`); `self-update.sh` fast-forwards this repo to `origin/main` before
+  every prompt (rule 4); `pipeline-state.sh` injects the gate state into every prompt;
   `guard-writes.sh`/`guard-bash.sh` block API-repo writes and publication until the artifact
   contract is met — a deterministic guard, not a sandbox (outer layers: PR review, GitHub
   permissions). Test suite: `.claude/hooks/tests/run-tests.sh` — run it after any hook change.
