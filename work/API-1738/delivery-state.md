@@ -25,18 +25,21 @@
 | 3 Feasibility | `phase-03-feasibility.md` | pass (backfilled 2026-09-05) | none | — |
 | 4 GATE | `phase-04-verdict.md` | pass — VERDICT ✅ (2026-09-05) | none | — |
 | 5 Plan | `phase-05-plan.md` | pass — awaiting HUMAN-GATE-OK (risky) | none | human gate |
-| 6 Implement | branch/commits | pending (P-03, P-04b) | | |
-| 7 Test | `phase-07-testing.md` | pending | | |
+| 6 Implement | branch/commits | pass — local 1e65eb8a3 (= -v3 tree; user's squash ea9817aa4 + amend for the 2-line delta), not pushed yet | none | — |
+| 7 Test | `phase-07-testing.md` | pass — TESTS: GREEN (567/567), 11 folders × 2 builds; F-01 Staff QA account rejected by DotRez (external) | P2 | — |
 | 8 Release prep | runbook | pending | | |
 | 9 Pre-review | `phase-09-pre-review.md` | pending | | |
-| 10 PR | PR #2484 | open — 3× CHANGES_REQUESTED, 20 threads unanswered | | |
+| 10 PR | PR #2484 | open — head ea9817aa4 (user's squash+rebase, 2026-09-05), Build ✅, **Sonar QG ❌ 1 new issue**, 3× CHANGES_REQUESTED standing, 20 threads unanswered | | |
 | 11 Post-merge | doc-sync evidence | pending | | |
 
 ## Scenario coverage (from phase-05-plan.md, numbered)
 
 | # | Scenario | Evidence | Result |
 |---|---|---|---|
-| S-01…S-12 | matrix rows 1–12 (defined in Phase 5) | pending | |
+| S-01…S-12 | matrix rows 1–12 | newman Solution (:9050) + Issue (:9051), `attachments/evidence-runs/`; rows 4–9 screenshots from 2026-09-04; rows 1–3, 10–12 screenshots pending (user, `evidence/screenshot-checklist.md`) | PASS (S-03 with external Staff-login gap F-01) |
+| S-13 | full NUnit suite | `attachments/dotnet-test-1e65eb8a3.txt` | PASS 567/567 |
+| S-14 | tree == -v3, build | git diff empty, 0 errors | PASS |
+| S-15 | app start + DotRez login | :9050 up, Customer login 200 | PASS |
 
 ## Active blockers / questions
 
@@ -46,5 +49,5 @@
 
 ## Human gates
 
-- `HUMAN-GATE-REQUIRED`: yes · `HUMAN-GATE-OK`: pending (after phase-05-plan.md)
+- `HUMAN-GATE-REQUIRED`: yes · `HUMAN-GATE-OK`: **present** — created by Daniel Llano on 2026-09-05 (gate reported open at the "proceed" prompt)
 - `PUSH-APPROVED`: pending

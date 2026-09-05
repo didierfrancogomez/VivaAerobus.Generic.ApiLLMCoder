@@ -171,3 +171,11 @@ Anti-scope: no toggle rename (VB), no change to the account profile's own `conta
 | + | Luis (Tech Lead) supplied PR wording | P-13 uses it verbatim as the PR summary comment once every statement in it is true (rebased on master ✓, Trips/Add ✓, formatting ✓, 12 rows re-executed on the final commit ✓ after P-09, PR description updated ✓, every thread answered ✓) |
 
 Any further deviation returns to this gate with the delta.
+
+### 7.1 Refresh 2026-09-05 ~00:50 -0400 — the user executed P-04b by hand (outside the pipeline)
+- `origin/feature/API-1738/display-passengers-changes` was **force-updated 5f26398c0 → ea9817aa4**: ONE squashed commit on top of `origin/master` e004bf9d8 (identical to `-v2`), message `API-1738 ✨ Mask contact data instead of passenger identity under DisplayPassengers`, 14 files, +214/−88. PR #2484 now: 1 commit, `mergeable: true`, state `blocked` (review/QG). No review or thread activity after the push (last review still 2026-09-04T11:16Z on 46ccc9840).
+- **Delta vs `-v3` = 2 lines** (Luis's last commit abe4bb5d8 not included): `BookingOutput.cs :: BookingUserOutput.Create(…, bool maskContactData = false)` still has the default (single caller passes it → STY-05 "unnecessary default", and the TL summary text claims it is removed); missing blank line before `ShouldHideCustomerNumber` in `BookingPassengerOutputBuilder.cs`.
+- **CI on ea9817aa4: Build ✅, SonarQube Quality Gate ❌ — "1 New issue"** (the QG passed with 0 new issues on 46ccc9840). The Sonar API needs authentication (no token on this machine); the issue text must be read from the dashboard link in the PR comment.
+- Local checkout still at 5aab3a22e (5 ahead / 21 behind the new remote — the old lineage); tree unchanged; stashes untouched. PID 7148 still serving the 2026-09-03 build.
+- Ticket/subtask unchanged (snapshot diff empty); evidence state as in §1.7.
+- Plan effect: P-03/P-04b become "re-point the local branch to `origin/…` ea9817aa4" (local-only rewrite of an already-superseded local branch; old SHAs recorded in `continue-recovery.md`); a **fix step is added** for the Sonar issue + the 2-line delta — by amend + `--force-with-lease` (head ea9817aa4 unreviewed) if the user confirms, else fix-forward; the TL summary's "unused default … removed" line is true only after that fix. `HUMAN-GATE-OK` still pending.
