@@ -31,7 +31,8 @@
 | ✋ | STY-05 | `Concepts/_Shared/Models/Output/BookingOutput.cs:159` | `CreateFromBookingComment(…, bool = false)` default | justified (2 notification callers); offered explicit `false` in T12 reply |
 | ✋ | STY-08 | 3 rationale comments | — | justified (T17 approval) |
 | P2 | PRC-38 | Sonar QG on ea9817aa4: "1 New issue" (rule/file unreadable from here) | must be green before re-requesting review | re-analysis runs on the pushed head; if it persists, fix-forward and re-run this gate |
-| P2 | PRC-33 | TC03 Staff login | DotRez QA rejects account 55162517 | F-01 → question to QA; stated in delivery comment |
+| P3 | — | TC03 Staff login on this workstation | local environment difference (works on the user's other machine, full row-3 evidence generated there) | F-01 withdrawn 2026-09-05 |
+| P2 | PRC-38 | Sonar on 1e65eb8a3: **S107** `BookingOutputBuilder` ctor 26 parameters (was 25 on master) | inherited constructor size; the 26th is the reviewer-requested provider injection | reviewer's call / "Accept" in Sonar — raised in the PR status comment |
 
 ## Plan alignment
 

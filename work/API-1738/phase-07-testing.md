@@ -54,7 +54,7 @@ Collection fix (the only edit): `TC09 / 02 Link booking through Account Trips Ad
 
 | Severity | Rule (STY/ARC/ROB/PRC or process) | Where | Issue | Fix |
 |---|---|---|---|---|
-| P2 (process/external) | PRC-33 (real data) | TC03 step 06, both builds | Staff QA account `55162517` rejected by DotRez QA (`Credentials:Failed`) — worked on 2026-09-01 | F-01: ask QA (hectorcervantes) for a working Staff/Agency account; row-3 content evidence stands meanwhile, gap stated in the delivery comment |
+| P3 (local environment) | — | TC03 step 06, both builds **on this machine** | Staff login rejected (`nsk-server:AgentAuthentication` failed for WWW/55162517). **Corrected 2026-09-05 by the user:** the same credentials and collection log in fine on the user's other machine, where the full row-3 evidence (Staff viewer) was generated — so this is a local DotRez agent/config difference of this workstation, not a QA-account problem. F-01 withdrawn; the "known gap" sentence was removed from the PR status comment (by the user) and from the Jira delivery comment (by the agent). Row-3 content assertions passed here as well |
 | P2 (test asset) | PRC-34 (matrix up to date) | attached collection TC09/02 | assertion encoded the pre-VB-#5 scope ("Trips/Add out of scope") | fixed in the working copy; re-attach with the evidence |
 | P3 (environment) | — | launch | port 9050 lives only in `launchSettings.json`; running the exe needs `ASPNETCORE_URLS` | documented in `continue-recovery.md` |
 
