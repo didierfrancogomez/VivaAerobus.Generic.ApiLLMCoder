@@ -7,9 +7,9 @@
 - `key`: API-1738
 - `branch`: feature/API-1738/display-passengers-changes (PR #2484, EzyWebwerkstaden/VivaAerobus.Generic.Api)
 - `rigor`: risky
-- `current_phase`: 04
+- `current_phase`: 05 → 06 (awaiting HUMAN-GATE-OK)
 - `current_run`: none (adoption via /continue on 2026-09-05; prior validation happened outside the pipeline)
-- `overall_status`: analysis
+- `overall_status`: awaiting-user-approval (human gate on the Phase 5 plan)
 
 ## /continue approval record
 - Plan `continue-plan-2026-09-04.md` **approved with changes by Daniel Llano on 2026-09-05 00:01 -0400** (decisions Q1–Q7 recorded in the plan §7).
@@ -23,8 +23,8 @@
 | 1 Contrast | `phase-01-contrast.md` | pass (backfilled 2026-09-05) | P3 | — |
 | 2 Impact | `phase-02-impact-matrix.md` | pass (backfilled 2026-09-05) | P2 | — |
 | 3 Feasibility | `phase-03-feasibility.md` | pass (backfilled 2026-09-05) | none | — |
-| 4 GATE | `phase-04-verdict.md` | pending | | |
-| 5 Plan | `phase-05-plan.md` | pending | | HUMAN-GATE-OK required (risky) |
+| 4 GATE | `phase-04-verdict.md` | pass — VERDICT ✅ (2026-09-05) | none | — |
+| 5 Plan | `phase-05-plan.md` | pass — awaiting HUMAN-GATE-OK (risky) | none | human gate |
 | 6 Implement | branch/commits | pending (P-03, P-04b) | | |
 | 7 Test | `phase-07-testing.md` | pending | | |
 | 8 Release prep | runbook | pending | | |

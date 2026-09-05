@@ -6,4 +6,4 @@ One folder per Jira task; the folder name IS the ticket key. Open the key's
 
 | Jira key | Title | Status | Phase | Last saved |
 |---|---|---|---|---|
-| [API-1738](API-1738/) | Display Passengers Changes | analysis | 04 | not saved yet |
+| [API-1738](API-1738/) | Display Passengers Changes | awaiting-user-approval (human gate on the Phase 5 plan) | 05 → 06 (awaiting HUMAN-GATE-OK) | 2026-09-05 |
