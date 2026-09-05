@@ -86,8 +86,16 @@ python jira_sync.py deliver API-9999 \
 ```
 
 In order: **evidence** → the `Test Cases, execution and evidences` subtask (created if absent) ·
+**matrix results** (`--results 1=PASS,2=PASS --results 10=PASS`, optional `--evidence-note 10=<file names>`:
+writes the `Execution Result` cell of the subtask's matrix, matched on the `#` column, and appends a
+text line to `Evidences` — existing images stay; a row it cannot map aborts the run) ·
 **comment** with the PR link · **add `TestComplete`** (keeping `TestCaseReady`) · **transition** the
 parent · **unassign** so QA can grab it (`--keep-assignee` only for an agreed direct handback).
+
+Console encoding: the script forces UTF-8 output with replacement (Windows consoles default to
+cp1252 and the dumps carry `→`/emoji); no `PYTHONIOENCODING` needed. Attachments of every known
+evidence format (images, `.json` collections, `.html` newman reports, `.pdf/.csv/.xlsx`, logs) are
+downloaded with their upload date and author; unknown formats are still listed in the dump.
 
 Ordered so a mid-way failure leaves the ticket truthful — evidence without the label is recoverable,
 a completion label with no evidence is not. Every step is idempotent. **Always `--dry-run` first.**

@@ -32,6 +32,15 @@ import requests
 import pathlib
 from dotenv import load_dotenv
 
+# Windows consoles default to cp1252; ticket dumps carry arrows/emoji (→ ✨ ⛔). Fall back to
+# UTF-8 with replacement so a stray glyph never aborts a fetch (observed on API-1738:
+# "'charmap' codec can't encode character '→'"). Files are always written as UTF-8.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -117,7 +126,13 @@ STATUS_FOLDER_MAP: dict[str, str] = {
 }
 
 ALL_FOLDERS = ["ToDo", "InProgress", "InReview", "UAT", "Released", "Others"]
-ALLOWED_ATTACHMENT_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".txt", ".md"}
+# Every format the team attaches as evidence: screenshots, Postman collections/environments
+# (.json), newman reports (.html), exports (.pdf/.csv/.xlsx), logs. Anything else is still
+# LISTED in the dump (never silently dropped) but not downloaded.
+ALLOWED_ATTACHMENT_EXTS = {
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg",
+    ".txt", ".md", ".log", ".json", ".html", ".htm", ".pdf", ".csv", ".xlsx", ".xls", ".docx", ".zip",
+}
 
 DIVIDER = "-" * 70
 
@@ -146,6 +161,110 @@ def _post(path: str, body: dict) -> dict:
     resp = requests.post(url, auth=_auth(), headers=_headers(), json=body, timeout=30)
     resp.raise_for_status()
     return resp.json()
+
+
+def _put(path: str, body: dict) -> None:
+    """PUT without a JSON body in the answer (Jira returns 204 on issue edits)."""
+    url = f"{JIRA_BASE_URL}{path}"
+    resp = requests.put(url, auth=_auth(), headers=_headers(), json=body, timeout=30)
+    resp.raise_for_status()
+
+
+def _adf_node_text(node) -> str:
+    """Plain text of an ADF node (or list of nodes), recursively."""
+    if isinstance(node, dict):
+        if node.get("type") == "text":
+            return node.get("text", "")
+        return "".join(_adf_node_text(c) for c in node.get("content") or [])
+    if isinstance(node, list):
+        return "".join(_adf_node_text(c) for c in node)
+    return ""
+
+
+def _matrix_row_id(text: str) -> str:
+    """Normalise '1', '01', 'TC01', 'Row 1' → '1' so callers can address rows either way."""
+    digits = re.sub(r"\D", "", text or "")
+    return digits.lstrip("0") or digits or (text or "").strip()
+
+
+def jira_update_matrix(issue_key: str, results: dict[str, str],
+                       evidence_notes: dict[str, str] | None = None,
+                       dry_run: bool = False) -> bool:
+    """
+    Write the 'Execution Result' cell of the test-case matrix (first table of the issue
+    description) for the given rows, matched on the '#' column, and optionally append a text
+    line to the row's 'Evidences' cell (media nodes already there are preserved — the media id
+    of a fresh upload is not exposed by the attachments API, so the fallback is the file name).
+
+    Fallbacks, in order: header named '#'/'TC'/'Id' → first column; result column named
+    'Execution Result'/'Result'/'Resultado'; evidence column 'Evidences'/'Evidence'/'Evidencias'.
+    Rows it cannot map are reported, never guessed. Returns True when every requested row was
+    updated.
+    """
+    issue = _get(f"/rest/api/3/issue/{issue_key}", params={"fields": "description"})
+    desc = (issue.get("fields") or {}).get("description")
+    if not isinstance(desc, dict):
+        print(f"    ⚠  {issue_key} has no rich-text description — matrix not updated")
+        return False
+    tables = [n for n in desc.get("content") or [] if n.get("type") == "table"]
+    if not tables:
+        print(f"    ⚠  {issue_key} description has no table — matrix not updated")
+        return False
+    rows = tables[0].get("content") or []
+    header = [_adf_node_text(c).strip().lower() for c in (rows[0].get("content") or [])] if rows else []
+
+    def find_col(*names: str) -> Optional[int]:
+        for name in names:
+            if name in header:
+                return header.index(name)
+        return None
+
+    key_col = find_col("#", "tc", "id", "row") if header else None
+    if key_col is None:
+        key_col = 0
+    res_col = find_col("execution result", "result", "resultado")
+    ev_col = find_col("evidences", "evidence", "evidencias")
+    if res_col is None:
+        print(f"    ⚠  No 'Execution Result' column in {issue_key} (header: {header}) — matrix not updated")
+        return False
+
+    pending = {_matrix_row_id(k): v for k, v in results.items()}
+    notes = {_matrix_row_id(k): v for k, v in (evidence_notes or {}).items()}
+    changed: list[str] = []
+    for row in rows[1:]:
+        cells = row.get("content") or []
+        if key_col >= len(cells) or res_col >= len(cells):
+            continue
+        rid = _matrix_row_id(_adf_node_text(cells[key_col]))
+        if rid not in pending:
+            continue
+        cells[res_col]["content"] = [{"type": "paragraph",
+                                      "content": [{"type": "text", "text": pending.pop(rid)}]}]
+        if rid in notes and ev_col is not None and ev_col < len(cells):
+            cells[ev_col].setdefault("content", []).append(
+                {"type": "paragraph", "content": [{"type": "text", "text": notes[rid]}]})
+        changed.append(rid)
+
+    print(f"    Matrix   : rows {', '.join(changed) or '(none)'} → Execution Result updated in {issue_key}"
+          + ("  (dry-run)" if dry_run else ""))
+    if pending:
+        print(f"    ⚠  rows not found in the matrix of {issue_key}: {', '.join(pending)}")
+    if not dry_run and changed:
+        _put(f"/rest/api/3/issue/{issue_key}", body={"fields": {"description": desc}})
+    return not pending
+
+
+def _parse_row_assignments(values: list[str] | None) -> dict[str, str]:
+    """'1=PASS,2=FAIL' or repeated '--results 10=PASS' → {'1': 'PASS', ...}."""
+    out: dict[str, str] = {}
+    for chunk in values or []:
+        for pair in chunk.split(","):
+            if "=" not in pair:
+                continue
+            k, v = pair.split("=", 1)
+            if k.strip():
+                out[k.strip()] = v.strip()
+    return out
 
 
 def fetch_changelog(issue_key: str) -> list[dict]:
@@ -1003,9 +1122,11 @@ def jira_upload_attachments(issue_key: str, paths: list[Path]) -> list[str]:
 
 
 def jira_find_or_create_evidence_subtask(parent_key: str,
-                                         summary: str = EVIDENCE_SUBTASK_SUMMARY) -> Optional[str]:
+                                         summary: str = EVIDENCE_SUBTASK_SUMMARY,
+                                         create: bool = True) -> Optional[str]:
     """
-    Return the key of the parent's evidence subtask, creating it when absent.
+    Return the key of the parent's evidence subtask, creating it when absent
+    (`create=False` only looks — used by --dry-run so a rehearsal never writes).
 
     Matching is by summary so a subtask created by hand in the UI is reused rather
     than duplicated — every ticket in this project has exactly one.
@@ -1015,6 +1136,8 @@ def jira_find_or_create_evidence_subtask(parent_key: str,
     for sub in fields.get("subtasks") or []:
         if (sub["fields"].get("summary") or "").strip().lower() == summary.strip().lower():
             return sub["key"]
+    if not create:
+        return None
 
     project_key = (fields.get("project") or {}).get("key")
     if not project_key:
@@ -1136,10 +1259,14 @@ def process_issue(issue: dict, output_dir: Path, folder_override: str | None = N
         comment_blocks.append(f"[{created}] {author}:\n{body}")
 
     # ── Attachments ─────────────────────────────────────────────────────────
+    # Known formats are downloaded; anything else is listed (a collection JSON or a PDF that
+    # goes unmentioned is evidence the reader never learns about).
+    all_attachments = fields.get("attachment") or []
     attachments = [
-        a for a in (fields.get("attachment") or [])
+        a for a in all_attachments
         if Path(a.get("filename", "")).suffix.lower() in ALLOWED_ATTACHMENT_EXTS
     ]
+    skipped_attachments = [a for a in all_attachments if a not in attachments]
 
     # ── Remove ticket from any other folder it may have lived in previously ──
     for other_folder in ALL_FOLDERS:
@@ -1225,11 +1352,21 @@ def process_issue(issue: dict, output_dir: Path, folder_override: str | None = N
             ext = Path(original_name).suffix.lower()
             dest_name = f"{key}_{idx}{ext}"
             dest_path = att_dir / dest_name
+            created = (att.get("created") or "")[:16].replace("T", " ")
+            author = (att.get("author") or {}).get("displayName", "")
             try:
                 download_attachment(att["content"], dest_path)
-                lines.append(f"  [{idx:02d}] {original_name}  →  {dest_name}")
+                lines.append(f"  [{idx:02d}] {original_name}  →  {dest_name}  ({created} · {author})")
             except Exception as exc:
                 lines.append(f"  [{idx:02d}] {original_name}  FAILED: {exc}")
+        for att in skipped_attachments:
+            created = (att.get("created") or "")[:16].replace("T", " ")
+            lines.append(f"  [ -- ] {att.get('filename')}  (not downloaded — unknown format; {created})")
+        lines.append(DIVIDER)
+    elif skipped_attachments:
+        lines += ["", "Attachments (not downloaded — unknown formats):", DIVIDER]
+        for att in skipped_attachments:
+            lines.append(f"  {att.get('filename')}  ({(att.get('created') or '')[:16].replace('T', ' ')})")
         lines.append(DIVIDER)
 
     ticket_file = folder_path / f"{key}.txt"
@@ -2097,6 +2234,12 @@ def deliver_ticket(argv: list[str]) -> None:
     parser.add_argument("--no-transition", action="store_true", help="Do not change the status.")
     parser.add_argument("--keep-assignee", action="store_true",
                         help="Skip the unassign step (rework loop: the ticket stays yours).")
+    parser.add_argument("--results", action="append", metavar="ROW=RESULT[,ROW=RESULT…]",
+                        help="Write the 'Execution Result' cell of the evidence subtask's matrix, e.g. "
+                             "--results 1=PASS,2=PASS --results 10=PASS. Rows are matched on the '#' column.")
+    parser.add_argument("--evidence-note", action="append", metavar="ROW=TEXT",
+                        help="Append a text line to the row's 'Evidences' cell (e.g. the evidence file names). "
+                             "Existing images in the cell are kept.")
     parser.add_argument("--dry-run", action="store_true", help="Report what would happen, change nothing.")
     args = parser.parse_args(argv)
 
@@ -2136,6 +2279,20 @@ def deliver_ticket(argv: list[str]) -> None:
                           "before comment/label/transition/unassign: a label claiming completion with no "
                           "evidence behind it is a lie. Fix and re-run (deliver is idempotent).")
                     sys.exit(1)
+
+    # 1b. Matrix results (the subtask description is the acceptance record) -----
+    results = _parse_row_assignments(args.results)
+    if results:
+        sub = jira_find_or_create_evidence_subtask(key, create=not args.dry_run)
+        if not sub:
+            print("  ⚠  No evidence subtask found — matrix results not written"
+                  + (" (dry-run: would be created on the real run)" if args.dry_run else ""))
+        else:
+            ok = jira_update_matrix(sub, results, _parse_row_assignments(args.evidence_note), dry_run=args.dry_run)
+            if not ok and not args.dry_run:
+                print("  ⛔ Some matrix rows could not be updated — aborting before comment/label/transition "
+                      "so the ticket never claims more than its matrix shows. Fix and re-run (deliver is idempotent).")
+                sys.exit(1)
 
     # 2. Comment --------------------------------------------------------------
     lines = []
