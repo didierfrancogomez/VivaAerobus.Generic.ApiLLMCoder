@@ -7,9 +7,9 @@
 - `key`: API-1738
 - `branch`: feature/API-1738/display-passengers-changes (PR #2484, EzyWebwerkstaden/VivaAerobus.Generic.Api)
 - `rigor`: risky
-- `current_phase`: 05 → 06 (awaiting HUMAN-GATE-OK)
-- `current_run`: none (adoption via /continue on 2026-09-05; prior validation happened outside the pipeline)
-- `overall_status`: awaiting-user-approval (human gate on the Phase 5 plan)
+- `current_phase`: 10 (publication gate)
+- `current_run`: run-001 (phase-07/09 at the task root; adoption via /continue on 2026-09-05)
+- `overall_status`: awaiting-user-approval (PUSH-APPROVED for the push of 1e65eb8a3)
 
 ## /continue approval record
 - Plan `continue-plan-2026-09-04.md` **approved with changes by Daniel Llano on 2026-09-05 00:01 -0400** (decisions Q1–Q7 recorded in the plan §7).
@@ -27,8 +27,8 @@
 | 5 Plan | `phase-05-plan.md` | pass — awaiting HUMAN-GATE-OK (risky) | none | human gate |
 | 6 Implement | branch/commits | pass — local 1e65eb8a3 (= -v3 tree; user's squash ea9817aa4 + amend for the 2-line delta), not pushed yet | none | — |
 | 7 Test | `phase-07-testing.md` | pass — TESTS: GREEN (567/567), 11 folders × 2 builds; F-01 Staff QA account rejected by DotRez (external) | P2 | — |
-| 8 Release prep | runbook | pending | | |
-| 9 Pre-review | `phase-09-pre-review.md` | pending | | |
+| 8 Release prep | runbook | pass — release notes + Admin-Portal flag in PR body; rollback = revert; toggle default off (plan §Specific plans) | none | — |
+| 9 Pre-review | `phase-09-pre-review.md` | pass — REVIEW-CODE APPROVED, VALIDATED-SHA 1e65eb8a3, COMPLETENESS VERIFIED, DEVIATIONS APPROVED-AND-DOCUMENTED | P2 | awaiting PUSH-APPROVED |
 | 10 PR | PR #2484 | open — head ea9817aa4 (user's squash+rebase, 2026-09-05), Build ✅, **Sonar QG ❌ 1 new issue**, 3× CHANGES_REQUESTED standing, 20 threads unanswered | | |
 | 11 Post-merge | doc-sync evidence | pending | | |
 
