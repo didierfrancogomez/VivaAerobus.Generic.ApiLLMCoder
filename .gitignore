@@ -16,3 +16,9 @@ work/*/attachments/
 work/*/jira_tickets/
 
 .DS_Store
+# - /continue and evidence-run artifacts that can carry ticket dumps, test credentials or
+#   environment configuration (introduced 2026-09-05, API-1738 run)
+work/*/ticket-snapshots/
+work/*/config-backups/
+work/*/evidence/upload/
+work/*/evidence/screenshots/
