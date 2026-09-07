@@ -6,4 +6,4 @@ One folder per Jira task; the folder name IS the ticket key. Open the key's
 
 | Jira key | Title | Status | Phase | Last saved |
 |---|---|---|---|---|
-| [API-1738](API-1738/) | Display Passengers Changes | delivered (PR #2484 re-requested, Jira In review / unassigned) | 10 (in review) → 11 after merge | 2026-09-05 |
+| [API-1738](API-1738/) | Display Passengers Changes | delivered (PR #2484 re-requested, Jira In review / unassigned) | 10 (in review) → 11 after merge | 2026-09-07 |

@@ -47,6 +47,11 @@
 |---|---|---|---|
 | — | none open (VB answered 1–6 on 2026-09-02; user decided Q1–Q7 on 2026-09-05) | | |
 
+## Incident — test credentials committed (2026-09-05 → handled 2026-09-07)
+- `work/API-1738/evidence/upload/…postman_collection.json` (QA customer, Staff `55162517` and local `ezyadmin` passwords as collection variables) was committed in `1fd03ba`, merged upstream via PR #1 (`1e1770a`) and pushed to the fork `DLlano-VA/VivaAerobus.Generic.ApiLLMCoder`.
+- Tree fix pushed (`6d3656f`): file untracked, `.gitignore` covers `work/*/{ticket-snapshots,config-backups,evidence/upload,evidence/screenshots}/`.
+- User decision 2026-09-07: **option 1 — rotate the credentials, keep history; delete the fork.** Fork deletion needs the `delete_repo` scope on the `DLlano-VA` token (human step); rotation of the three test credentials is a human/QA step. Both pending the user.
+
 ## Human gates
 
 - `HUMAN-GATE-REQUIRED`: yes · `HUMAN-GATE-OK`: **present** — created by Daniel Llano on 2026-09-05 (gate reported open at the "proceed" prompt)
