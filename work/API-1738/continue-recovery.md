@@ -38,6 +38,7 @@ None (nothing dirty overlaps the planned paths or master's changes).
 - Pre-existing: `VivaAerobus.Generic.Api.exe` PID 7148 on :9050 (build 2026-09-03 16:28 -0400, orphan). User authorized stop/restart (Q2, 2026-09-05).
 - Started by this run (2026-09-05 01:23 -0400): **PID 3132** — branch build 1e65eb8a3 on http://localhost:9050 (`ASPNETCORE_URLS`, env Development; log `work/API-1738/attachments/api-9050-1e65eb8a3.log`); **PID 25700** — master e004bf9d8 from the detached worktree `C:\VivaAerobus.Generic.Api-master` on http://localhost:9051 (Issue side; log `attachments/api-9051-master.log`). Stop both with `Stop-Process -Id 3132,25700` when done; remove the worktree with `git -C C:\VivaAerobus.Generic.Api worktree remove C:\VivaAerobus.Generic.Api-master --force`.
 - Earlier this run: PID 2876 (branch build bound to 5000/5001 by mistake) started 01:20 and stopped 01:23.
+- 2026-09-07: PID 3132 stopped; code repo switched to `master` b83df54a0 (PR #2484 merged 12:52Z); docker `vbgeneric-*` containers (all exited ~7 h earlier) restarted with `docker start`; **PID 1708** — master build on http://localhost:9050 (log `attachments/api-9050-master-b83df54a0.log`). TC07/TC08 re-run on master: 33/33 and 49/49 assertions.
 
 ## How to restore the pre-run state (only if asked)
 - Local branch back to the recorded HEAD: `git -C C:\VivaAerobus.Generic.Api branch -f feature/API-1738/display-passengers-changes 5aab3a22e` while on another ref (a rewrite — user OK required).
