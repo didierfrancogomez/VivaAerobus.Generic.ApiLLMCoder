@@ -453,7 +453,178 @@ def fetch_all_worklogs(issue_key: str) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Worklog write helpers
+# Worklog write helpers — `time` subcommand (list / add / edit / delete)
+# ---------------------------------------------------------------------------
+
+_TIME_UNIT_SECONDS = {"w": 5 * 8 * 3600, "d": 8 * 3600, "h": 3600, "m": 60}
+
+
+def parse_time_spent(text: str) -> int:
+    """'1d 2h 30m' / '2h30m' / '45m' / '2.5' (decimal hours) → seconds. Jira day = 8h, week = 5d."""
+    t = (text or "").strip().lower().replace(" ", "")
+    if not t:
+        raise ValueError("empty duration")
+    if re.fullmatch(r"\d+(\.\d+)?", t):
+        return int(round(float(t) * 3600))
+    if re.sub(r"\d+(?:\.\d+)?[wdhm]", "", t):
+        raise ValueError(f"unrecognised duration '{text}' — use e.g. 1d, 2h30m, 45m or decimal hours")
+    total = sum(int(round(float(n) * _TIME_UNIT_SECONDS[u])) for n, u in re.findall(r"(\d+(?:\.\d+)?)([wdhm])", t))
+    if total <= 0:
+        raise ValueError("duration must be positive")
+    return total
+
+
+def format_time_spent(seconds: int) -> str:
+    parts = []
+    for unit, size in (("d", 8 * 3600), ("h", 3600), ("m", 60)):
+        if seconds >= size:
+            parts.append(f"{seconds // size}{unit}")
+            seconds %= size
+    return " ".join(parts) or "0m"
+
+
+def worklog_started(date_str: str, time_str: Optional[str] = None, tz: Optional[str] = None) -> str:
+    """Jira wants 'YYYY-MM-DDTHH:MM:SS.mmm+HHMM'. Default time 09:00; default offset = this machine's
+    (pass --tz -06:00 to pin Mexico City so the entry lands on the right day in Jira)."""
+    d = datetime.strptime(date_str, "%Y-%m-%d")
+    hh, mm = (time_str or "09:00").split(":")[:2]
+    d = d.replace(hour=int(hh), minute=int(mm))
+    offset = tz.replace(":", "") if tz else d.astimezone().strftime("%z")
+    return d.strftime("%Y-%m-%dT%H:%M:%S.000") + offset
+
+
+def _worklog_comment_adf(text: str) -> dict:
+    return {"type": "doc", "version": 1,
+            "content": [{"type": "paragraph", "content": [{"type": "text", "text": text}]}]}
+
+
+def _worklog_row(w: dict, my_id: str) -> str:
+    mine = "me   " if (w.get("author") or {}).get("accountId") == my_id else "other"
+    return (f"  id={w['id']:<7} {w['started'][:10]} {w['started'][11:16]}  {w.get('timeSpent', ''):>7}  "
+            f"{mine}  {(w.get('author') or {}).get('displayName', ''):<22} {_adf_node_text(w.get('comment'))[:60]}")
+
+
+def time_command(argv: list[str]) -> None:
+    """
+    `time` — read and write your own worklogs on an issue.
+
+        python jira_sync.py time API-9999 list
+        python jira_sync.py time API-9999 add    --spent 1d --date 2026-09-08 [--start 09:00] [--tz -06:00] [--note "…"] [--dry-run]
+        python jira_sync.py time API-9999 edit   <worklogId> [--spent 1d] [--date …] [--start …] [--note …] [--dry-run]
+        python jira_sync.py time API-9999 delete <worklogId> [--dry-run]
+
+    Safety: edit/delete refuse entries whose author is not the token's user (a teammate's time is
+    never rewritten); add refuses an exact duplicate (same day + same duration by you) unless
+    --force; --dry-run prints the resulting entry and changes nothing.
+    """
+    import argparse
+    parser = argparse.ArgumentParser(prog="jira_sync.py time")
+    parser.add_argument("issue_key")
+    parser.add_argument("action", choices=["list", "add", "edit", "delete"])
+    parser.add_argument("worklog_id", nargs="?", help="worklog id (edit/delete) — see `list`")
+    parser.add_argument("--spent", help="duration: 1d, 2h30m, 45m or decimal hours (Jira day = 8h)")
+    parser.add_argument("--date", help="work date YYYY-MM-DD")
+    parser.add_argument("--start", help="start time HH:MM (default 09:00)")
+    parser.add_argument("--tz", help="UTC offset for the start, e.g. -06:00 (default: this machine)")
+    parser.add_argument("--note", help="worklog comment")
+    parser.add_argument("--leave-estimate", action="store_true",
+                        help="do not touch the remaining estimate (default: Jira adjusts it automatically)")
+    parser.add_argument("--force", action="store_true", help="add even if an identical entry exists")
+    parser.add_argument("--dry-run", action="store_true", help="show the result, change nothing")
+    args = parser.parse_args(argv)
+
+    key = args.issue_key.upper()
+    missing = [v for v in ("JIRA_BASE_URL", "JIRA_EMAIL", "JIRA_API_TOKEN") if not os.getenv(v)]
+    if missing:
+        print("ERROR: Missing required environment variables:", ", ".join(missing))
+        sys.exit(1)
+    my_id = _get("/rest/api/3/myself").get("accountId")
+    issue = _get(f"/rest/api/3/issue/{key}", params={"fields": "summary,status,timespent,timeestimate,timeoriginalestimate"})
+    f = issue["fields"]
+    print(f"Ticket   : {key} — {f['summary']}")
+    print(f"Status   : {(f.get('status') or {}).get('name')}")
+    print(f"Time     : spent {format_time_spent(f.get('timespent') or 0)} · remaining "
+          f"{format_time_spent(f.get('timeestimate') or 0)} · original estimate {format_time_spent(f.get('timeoriginalestimate') or 0)}")
+    logs = fetch_all_worklogs(key)
+    adjust = {"adjustEstimate": "leave"} if args.leave_estimate else {}
+
+    if args.action == "list":
+        print(f"Worklogs : {len(logs)}")
+        for w in sorted(logs, key=lambda x: x["started"]):
+            print(_worklog_row(w, my_id))
+        return
+
+    if args.dry_run:
+        print("\n-- DRY RUN, nothing will be modified --")
+
+    if args.action == "add":
+        if not (args.spent and args.date):
+            parser.error("add needs --spent and --date")
+        seconds = parse_time_spent(args.spent)
+        started = worklog_started(args.date, args.start, args.tz)
+        dup = [w for w in logs if (w.get("author") or {}).get("accountId") == my_id
+               and w["started"][:10] == started[:10] and w["timeSpentSeconds"] == seconds]
+        if dup and not args.force:
+            print(f"  ⛔ an identical entry already exists (id={dup[0]['id']}, {dup[0]['timeSpent']} on {started[:10]}). "
+                  "Re-run with --force if it is really a second entry.")
+            sys.exit(1)
+        body = {"started": started, "timeSpentSeconds": seconds}
+        if args.note:
+            body["comment"] = _worklog_comment_adf(args.note)
+        print(f"  Add      : {format_time_spent(seconds)} on {started[:16]} ({started[-5:]}) — {args.note or '(no note)'}")
+        if not args.dry_run:
+            resp = requests.post(f"{JIRA_BASE_URL}/rest/api/3/issue/{key}/worklog", auth=_auth(), headers=_headers(),
+                                 params=adjust, json=body, timeout=30)
+            resp.raise_for_status()
+            print(f"  ✔ created worklog id={resp.json().get('id')}")
+        return
+
+    # edit / delete need an id that belongs to me
+    if not args.worklog_id:
+        parser.error(f"{args.action} needs the worklog id — run `time {key} list`")
+    current = next((w for w in logs if str(w["id"]) == str(args.worklog_id)), None)
+    if not current:
+        print(f"  ⛔ worklog {args.worklog_id} not found on {key}")
+        sys.exit(1)
+    if (current.get("author") or {}).get("accountId") != my_id:
+        print(f"  ⛔ worklog {args.worklog_id} belongs to {(current.get('author') or {}).get('displayName')} — "
+              "the tool only edits or deletes your own entries")
+        sys.exit(1)
+    print("  Current  : " + _worklog_row(current, my_id).strip())
+
+    if args.action == "delete":
+        print("  Delete   : the entry above")
+        if not args.dry_run:
+            resp = requests.delete(f"{JIRA_BASE_URL}/rest/api/3/issue/{key}/worklog/{current['id']}", auth=_auth(),
+                                   headers=_headers(), params=adjust, timeout=30)
+            resp.raise_for_status()
+            print("  ✔ deleted")
+        return
+
+    if not (args.spent or args.date or args.start or args.note):
+        parser.error("edit needs at least one of --spent / --date / --start / --note")
+    seconds = parse_time_spent(args.spent) if args.spent else current["timeSpentSeconds"]
+    if args.date or args.start or args.tz:
+        started = worklog_started(args.date or current["started"][:10], args.start or current["started"][11:16], args.tz)
+    else:
+        started = current["started"]
+    body = {"started": started, "timeSpentSeconds": seconds}
+    if args.note:
+        body["comment"] = _worklog_comment_adf(args.note)
+    elif current.get("comment"):
+        body["comment"] = current["comment"]
+    print(f"  New      : {format_time_spent(seconds)} on {started[:16]} — {args.note or _adf_node_text(current.get('comment')) or '(no note)'}")
+    if not args.dry_run:
+        resp = requests.put(f"{JIRA_BASE_URL}/rest/api/3/issue/{key}/worklog/{current['id']}", auth=_auth(),
+                            headers=_headers(), params=adjust, json=body, timeout=30)
+        resp.raise_for_status()
+        after = _get(f"/rest/api/3/issue/{key}", params={"fields": "timespent,timeestimate"})["fields"]
+        print(f"  ✔ updated · issue now: spent {format_time_spent(after.get('timespent') or 0)}, "
+              f"remaining {format_time_spent(after.get('timeestimate') or 0)}")
+
+
+# ---------------------------------------------------------------------------
+# Attachment download
 # ---------------------------------------------------------------------------
 
 def download_attachment(url: str, dest: Path) -> None:
@@ -2346,7 +2517,7 @@ def deliver_ticket(argv: list[str]) -> None:
 
 
 if __name__ == "__main__":
-    _KNOWN = {"timesheet", "ticket", "deliver", "doctor", "ready"}
+    _KNOWN = {"timesheet", "ticket", "deliver", "doctor", "ready", "time"}
     if len(sys.argv) > 1 and sys.argv[1] in _KNOWN:
         _cmd = sys.argv[1]
         if _cmd == "timesheet":
@@ -2358,6 +2529,8 @@ if __name__ == "__main__":
                 download_other_ticket(sys.argv[2].upper())
             elif _cmd == "deliver":
                 deliver_ticket(sys.argv[2:])
+            elif _cmd == "time":
+                time_command(sys.argv[2:])
             else:
                 check_ready(sys.argv[2:])
         else:

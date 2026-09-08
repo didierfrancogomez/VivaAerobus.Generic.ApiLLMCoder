@@ -74,6 +74,10 @@ from Jira comments is only used for read-only `gh pr view`.
 | `python jira_sync.py ticket API-9999` | Fetch **one** ticket regardless of assignee → `jira_tickets/Others/` |
 | `python jira_sync.py deliver API-9999 …` | Write the delivery back — see below |
 | `python jira_sync.py timesheet …` | Worklog Excel report |
+| `python jira_sync.py time API-9999 list` | Your and others' worklogs on the issue (id, day, duration, author, note) |
+| `python jira_sync.py time API-9999 add --spent 1d --date 2026-09-08 [--start 09:00] [--tz -06:00] [--note "…"] [--dry-run]` | Log time (Jira day = 8h; `2h30m`, `45m` or decimal hours). Refuses an identical same-day entry unless `--force` |
+| `python jira_sync.py time API-9999 edit <id> [--spent …] [--date …] [--start …] [--note …] [--dry-run]` | Fix one of **your** entries (a teammate's entry is refused) |
+| `python jira_sync.py time API-9999 delete <id> [--dry-run]` | Remove one of your entries. `--leave-estimate` on any write keeps the remaining estimate untouched |
 
 ### `deliver`
 
