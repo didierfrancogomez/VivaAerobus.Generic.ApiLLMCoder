@@ -107,10 +107,12 @@ Execution order (each step closes by updating `delivery-state.md`; any deviation
 11. `tools/new-run.sh $ARGUMENTS` when prior validation exists — old evidence never validates new
     code. Backfill/refresh phases 0–5 artifacts as classified (the hooks demand them).
 12. Implement ONLY the planned `P-NN` steps — `guidelines/**` bind; minimal diff; no
-    opportunistic refactors; out-of-scope findings become new tickets (Phase 6.4).
+    opportunistic refactors; out-of-scope findings become new tickets (Phase 6.4). Close with
+    `tools/code-style.sh $ARGUMENTS apply` (Phase 6 §6.5 — `Ezy` style on our lines only).
 13. Phase 7: full suite green + every affected `S-NN` + **new rows get new test cases and fresh
     evidence** (named per the ticket's convention). `TESTS: GREEN` recorded.
-14. Phase 9: `process/REVIEW-CODE.md` to APPROVED, fresh markers, new `VALIDATED-SHA`. Fix
+14. Phase 9: `process/REVIEW-CODE.md` to APPROVED, fresh markers, new `VALIDATED-SHA`, and
+    `tools/code-style.sh $ARGUMENTS verify` → `CODE-STYLE: VERIFIED` on the same commit (§9.5). Fix
     commits stay on the same branch (squash happens at merge, §10.3).
 15. **Publication is the user's**: present the summary + staged diff-stat, WAIT for
     `work/$ARGUMENTS/PUSH-APPROVED` (never create it). Then push; **answer EVERY open PR

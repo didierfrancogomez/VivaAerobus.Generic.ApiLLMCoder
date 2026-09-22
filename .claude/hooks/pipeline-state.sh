@@ -33,13 +33,16 @@ for DIR in "$WORK_DIR"/*/; do
     PRE="$(gate_missing_prereview "$KEY")"
     if [ -z "$PRE" ]; then
       DRIFT="$(gate_sha_drift "$KEY")"
+      SDRIFT="$(gate_style_drift "$KEY")"
       APPROVAL="$(gate_missing_push_approval "$KEY")"
-      if [ -n "$DRIFT" ]; then
+      if [ -n "$SDRIFT" ]; then
+        echo "- $KEY: phases 0-5 complete ✅ · but ⛔ STYLE DRIFT ($SDRIFT) — re-run tools/code-style.sh $KEY verify on the current commit."
+      elif [ -n "$DRIFT" ]; then
         echo "- $KEY: phases 0-5 complete ✅ · tests+pre-review recorded, but ⛔ DIFF DRIFT ($DRIFT) — the approval is void; re-run REVIEW-CODE.md and update VALIDATED-SHA."
       elif [ -n "$APPROVAL" ]; then
-        echo "- $KEY: phases 0-5 complete ✅ · tests GREEN ✅ · pre-review APPROVED ✅ (SHA anchored) — push/PR WAITING for the user's approval: $APPROVAL"
+        echo "- $KEY: phases 0-5 complete ✅ · Ezy style ✅ · tests GREEN ✅ · pre-review APPROVED ✅ (SHA anchored) — push/PR WAITING for the user's approval: $APPROVAL"
       else
-        echo "- $KEY: phases 0-5 complete ✅ · tests GREEN ✅ · pre-review APPROVED ✅ · user approved publication ✅ — push/PR enabled (phases 10-11 still owe their evidence)."
+        echo "- $KEY: phases 0-5 complete ✅ · Ezy style ✅ · tests GREEN ✅ · pre-review APPROVED ✅ · user approved publication ✅ — push/PR enabled (phases 10-11 still owe their evidence)."
       fi
     else
       echo "- $KEY: phases 0-5 complete ✅ — implementation enabled. Push/PR BLOCKED: missing $(printf '%s' "$PRE" | tr '\n' ';')"

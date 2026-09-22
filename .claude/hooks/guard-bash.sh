@@ -12,6 +12,8 @@
 #     merge/rebase/cherry-pick, dotnet new/add) → require the analysis gate
 #     (phases 0-5 + VERDICT ✅).
 #   - publication (git push, gh pr create/merge) → additionally require
+#     phase-06-code-style.md with "CODE-STYLE: VERIFIED" + "STYLE-SHA: <commit>"
+#     (written by tools/code-style.sh verify; HEAD must still be that commit),
 #     phase-07-testing.md with "TESTS: GREEN" and phase-09-pre-review.md with
 #     "REVIEW-CODE: APPROVED" + "VALIDATED-SHA: <commit>", and the code repo's
 #     HEAD must still BE that commit (diff-drift check: code changed after
@@ -95,11 +97,15 @@ fi
 if [ "$PUBLISHES" = "1" ]; then
   PRE="$(gate_missing_prereview "$KEY")"
   if [ -n "$PRE" ]; then
-    gate_deny "⛔ PRE-PUBLICATION GATE (Phases 7+9): cannot publish (push / PR) — missing: $(printf '%s' "$PRE" | tr '\n' ';'). Phase 7: run the FULL suite green and record 'TESTS: GREEN' in work/$KEY/phase-07-testing.md. Phase 9: run the local validator process/REVIEW-CODE.md on the diff; only with APPROVED do you record 'REVIEW-CODE: APPROVED' plus 'VALIDATED-SHA: <commit>' in work/$KEY/phase-09-pre-review.md."
+    gate_deny "⛔ PRE-PUBLICATION GATE (Ezy style + Phases 7+9): cannot publish (push / PR) — missing: $(printf '%s' "$PRE" | tr '\n' ';'). Ezy style: tools/code-style.sh $KEY verify must record 'CODE-STYLE: VERIFIED' on the final commit (never write that file by hand). Phase 7: run the FULL suite green and record 'TESTS: GREEN' in work/$KEY/phase-07-testing.md. Phase 9: run the local validator process/REVIEW-CODE.md on the diff; only with APPROVED do you record 'REVIEW-CODE: APPROVED' plus 'VALIDATED-SHA: <commit>' in work/$KEY/phase-09-pre-review.md."
   fi
   DRIFT="$(gate_sha_drift "$KEY")"
   if [ -n "$DRIFT" ]; then
     gate_deny "⛔ DIFF DRIFT (Phase 9): the code changed after the REVIEW-CODE approval ($DRIFT). The approval is void — re-run process/REVIEW-CODE.md on the current diff, and only with APPROVED update 'VALIDATED-SHA:' in work/$KEY/phase-09-pre-review.md."
+  fi
+  SDRIFT="$(gate_style_drift "$KEY")"
+  if [ -n "$SDRIFT" ]; then
+    gate_deny "⛔ STYLE DRIFT: the code changed after the Ezy code style was verified ($SDRIFT). Re-run tools/code-style.sh $KEY verify on the current commit (apply first if it fails)."
   fi
   APPROVAL="$(gate_missing_push_approval "$KEY")"
   if [ -n "$APPROVAL" ]; then

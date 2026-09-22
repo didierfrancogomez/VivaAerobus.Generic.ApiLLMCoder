@@ -24,8 +24,10 @@ Hard sequence:
    ApiLLM first. The Phase 4 gate: verdict ⚠️/⛔ → **STOP**, surface the questions, no code.
 2. **Stage B — phases 5–11** only with `VERDICT: ✅` (the hooks enforce it): numbered plan
    (`_templates/plan.md`, guideline IDs cited) → implement on `feature/$ARGUMENTS/<kebab-slug>`
-   (PRC-102) → Phase 7 ladder until every `S-NN` is green (`TESTS: GREEN`) → release prep →
-   Phase 9 (squash to ONE commit, run `process/REVIEW-CODE.md`, the four markers, SHA-anchored)
+   (PRC-102) → `Ezy` code style on the task's lines (`tools/code-style.sh $ARGUMENTS apply`,
+   Phase 6 §6.5) → Phase 7 ladder until every `S-NN` is green (`TESTS: GREEN`) → release prep →
+   Phase 9 (squash to ONE commit, run `process/REVIEW-CODE.md`, the four markers, SHA-anchored,
+   `tools/code-style.sh $ARGUMENTS verify` → `CODE-STYLE: VERIFIED` on that same commit)
    → Phase 10.
 3. **Publication is the user's**: present the summary and WAIT for them to create
    `work/<KEY>/PUSH-APPROVED` (never create it). Then push, PR (explicit title, PRC-103), and

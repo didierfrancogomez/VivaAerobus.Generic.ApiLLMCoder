@@ -94,11 +94,68 @@
 6. **Report real progress daily**, including what got complicated. Surprises at the end of the
    sprint are process failures, not code failures.
 
+## 6.5 Apply the team's code style — `Ezy` profile (MANDATORY, last step of the phase)
+
+The API repo versions its own Rider/ReSharper settings,
+`VivaAerobus.Generic.Api/VivaAerobus.Generic.Api.sln.DotSettings`, with a Code Cleanup profile
+named **`Ezy`** (also the solution's *silent cleanup* profile). It is the style the reviewers
+apply. Code that "looks tidy" is not enough: **every line the task adds or modifies must come out
+exactly as that profile would write it**, and **every pre-existing line stays as `master` has it**
+(reformatting untouched code is collateral that the reviewer reads as a decision of yours, and it
+costs a review round).
+
+It runs **here, after the functional work is done and before Phase 7**, so the tests (Phase 7)
+and the review (Phase 9) run on the styled code, and nothing reaches a branch unstyled.
+
+**The command (the CLI of Rider's *Code Cleanup*)**, from the solution directory
+(`../VivaAerobus.Generic.Api/VivaAerobus.Generic.Api/`), scoped to the task's files:
+
+```bash
+jb cleanupcode VivaAerobus.Generic.Api.sln --profile="Ezy" --include="<file1.cs;file2.cs>" --verbosity=WARN
+```
+
+(`jb` = `JetBrains.ReSharper.GlobalTools`; one-time install: `dotnet tool install -g
+JetBrains.ReSharper.GlobalTools`.) `--include` limits the **files**, not the **lines**: inside
+an included file it rewrites everything. So it is **never run bare**. Run it through the wrapper,
+which applies the rule mechanically:
+
+```bash
+tools/code-style.sh <KEY> apply
+```
+
+What `apply` does: it computes "our lines" (the new-side lines of `git diff -U0 <merge-base>`,
+committed + uncommitted, plus every line of a new file). Then it runs the cleanup on the task's
+`.cs` files, handling `dotnet restore` and the temporary `global.json` `rollForward` workaround,
+and restores both afterwards. Finally it **keeps only the deltas that land on our lines** and
+writes every other line back byte for byte, CRLF included. It reports what it could not decide
+alone:
+
+- `MANUAL MIXED`: one delta that touches our lines and pre-existing ones. Apply by hand only the
+  part that is ours.
+- `MANUAL MOVE`: the profile relocates one of our members (`CSReorderTypeMembers`). Move it by
+  hand to where the profile puts it. Pre-existing members are never moved.
+- `EDGE`: an insertion on the border between our code and existing code, usually a blank line.
+  Keep it only if it separates **our** member.
+
+Then review the resulting diff (a line that shows up as both `-` and `+` is a moved member —
+revert it), and run `tools/code-style.sh <KEY> verify` for immediate feedback. `verify` re-runs
+the cleanup, restores the files, and passes only when **zero deltas land on our lines**. Deltas
+that remain on pre-existing lines are expected and recorded as such. The binding `verify` run is
+repeated in Phase 9 §9.5 on the final commit. That run is the one the push gate reads.
+
+⚠️ Never write `work/<KEY>/phase-06-code-style.md` by hand: only `verify` writes it, and a
+hand-written marker is falsifying the gate. Only C# (`*.cs`) under `VivaAerobus.Generic.Api/` is
+in scope; seeds (`Assets/Seed/**.json`) and `.csproj` files are left as the task wrote them. A
+team hard rule that contradicts the profile (e.g. `const` in UPPERCASE) wins. Record the
+conflict as an approved deviation in the plan, never as a silently rejected delta.
+
 ---
 
-**Artifacts:** branch with clean commits, tests, updated configuration.
+**Artifacts:** branch with clean commits, tests, updated configuration, Ezy style applied to the
+task's lines (§6.5).
 
 **Exit criterion:** all acceptance criteria implemented, all points of the impact matrix
-addressed, suite green locally.
+addressed, `tools/code-style.sh <KEY> apply` run with every `MANUAL` delta resolved and `verify`
+passing, suite green locally.
 
 **Next:** [Phase 7 — Testing](phase-07-testing.md)

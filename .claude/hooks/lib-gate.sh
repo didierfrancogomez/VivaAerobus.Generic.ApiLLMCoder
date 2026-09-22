@@ -22,6 +22,11 @@
 #   work/<KEY>/phase-03-feasibility.md
 #   work/<KEY>/phase-04-verdict.md      ← exactly ONE line "VERDICT: ..." — "VERDICT: ✅" opens the gate
 #   work/<KEY>/phase-05-plan.md         ← required before any code write
+#   work/<KEY>/phase-06-code-style.md   ← written ONLY by tools/code-style.sh verify: must
+#                                         contain "CODE-STYLE: VERIFIED" (the Ezy cleanup
+#                                         leaves zero deltas on the task's lines) and
+#                                         "STYLE-SHA: <commit>" before push/PR; push is
+#                                         denied if HEAD drifted from the styled commit
 #   work/<KEY>/phase-07-testing.md      ← must contain "TESTS: GREEN" before push/PR
 #   work/<KEY>/phase-09-pre-review.md   ← must contain "REVIEW-CODE: APPROVED",
 #                                         "VALIDATED-SHA: <commit>", "COMPLETENESS: VERIFIED"
@@ -139,10 +144,16 @@ gate_missing_analysis() {
   fi
 }
 
-# Prints missing pre-publication artifacts for push/PR (phases 7 and 9).
-# Empty = ok.
+# Prints missing pre-publication artifacts for push/PR (Ezy code style, phases 7
+# and 9). Empty = ok.
 gate_missing_prereview() {
   KEY="$1"; DIR="$WORK_DIR/$KEY"
+  if [ ! -f "$DIR/phase-06-code-style.md" ]; then
+    echo "work/$KEY/phase-06-code-style.md (Ezy code style — run: tools/code-style.sh $KEY apply, then tools/code-style.sh $KEY verify)"
+  else
+    grep -q '^CODE-STYLE: VERIFIED' "$DIR/phase-06-code-style.md" 2>/dev/null ||       echo "work/$KEY/phase-06-code-style.md missing the 'CODE-STYLE: VERIFIED' line (the Ezy cleanup still changes lines this task added/modified — tools/code-style.sh $KEY apply, fix the MANUAL deltas, re-run verify)"
+    grep -Eq '^STYLE-SHA: [0-9a-fA-F]{7,40}' "$DIR/phase-06-code-style.md" 2>/dev/null ||       echo "work/$KEY/phase-06-code-style.md missing the 'STYLE-SHA: <commit>' line (verify ran on uncommitted files — re-run tools/code-style.sh $KEY verify on the final commit)"
+  fi
   if [ ! -f "$DIR/phase-07-testing.md" ]; then
     echo "work/$KEY/phase-07-testing.md (Phase 7)"
   elif ! grep -q '^TESTS: GREEN' "$DIR/phase-07-testing.md" 2>/dev/null; then
@@ -185,6 +196,20 @@ gate_sha_drift() {
     case "$HAVE" in "$WANT"*) return 0 ;; esac
   fi
   printf 'approved commit %s vs current HEAD %s' "$WANT" "$HAVE"
+}
+
+# Style-drift check: the commit the Ezy style was verified on must be the code
+# repo's current HEAD at publication time. Same contract as gate_sha_drift.
+gate_style_drift() {
+  KEY="$1"; DIR="$WORK_DIR/$KEY"
+  WANT="$(sed -n 's/^STYLE-SHA:[[:space:]]*//p' "$DIR/phase-06-code-style.md" 2>/dev/null | head -1 | tr -d '[:space:]')"
+  [ -n "$WANT" ] || return 0
+  HAVE="$(git -C "$CODE_REPO" rev-parse HEAD 2>/dev/null || true)"
+  [ -n "$HAVE" ] || return 0
+  if [ "${#WANT}" -ge 7 ]; then
+    case "$HAVE" in "$WANT"*) return 0 ;; esac
+  fi
+  printf 'styled commit %s vs current HEAD %s' "$WANT" "$HAVE"
 }
 
 # Emits a PreToolUse deny decision and exits 0 (Claude Code reads the JSON).

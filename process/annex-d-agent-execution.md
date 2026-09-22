@@ -71,10 +71,10 @@ versioning rests on; check it before every save.
 | 3 Feasibility | Coverage walk, gaps, feasibility conclusion | Reading sibling tickets the agent cannot see; PO/tech-lead agreement on scope |
 | 4 Gate | Classify doubts, write questions with options + recommendation, the verdict | **Answering** the questions (PO/tech lead/QA/vendor owner) |
 | 5 Plan | Options, trade-offs, the specific plans, guideline IDs | Design review with tech lead; QA sign-off on the test plan; `HUMAN-GATE-OK` (risky) |
-| 6 Implement | Code, tests, checkpoints commits | Approving any deviation from the plan (§6.4.3) |
+| 6 Implement | Code, tests, checkpoints commits, `Ezy` style on the task's lines (`code-style.sh apply`) | Approving any deviation from the plan (§6.4.3) |
 | 7 Test | Unit/integration suites, evidence, `TESTS: GREEN` | Manual exploratory on external systems; QA execution; PO functional acceptance |
 | 8 Release | Draft runbook, release notes, config lists | Provisioning environments; creating dashboards/alerts; approvals; the window |
-| 9 Pre-review | Full self-review, squash, REVIEW-CODE.md, the four marker lines | Nothing — this phase is fully the agent's |
+| 9 Pre-review | Full self-review, squash, REVIEW-CODE.md, the four marker lines, `code-style.sh verify` | Nothing — this phase is fully the agent's |
 | 10 PR | Draft PR title/description; after approval: push + PR + respond to review | **`PUSH-APPROVED`** (the user's explicit yes, §10.0); the review itself; merge decision |
 | 11 Post-merge | Invoke the ApiLLM `doc-sync`; draft closure comment; debt tickets list | Production monitoring, smoke test, flag rollout, closing the ticket |
 

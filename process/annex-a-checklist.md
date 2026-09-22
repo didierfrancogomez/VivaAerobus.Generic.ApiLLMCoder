@@ -61,6 +61,8 @@
 - [ ] Observability, configuration and i18n updated in the same change
 - [ ] Both paths of the flag work
 - [ ] Out-of-scope findings → new tickets, not in this diff
+- [ ] `Ezy` code style applied to the task's lines only (`tools/code-style.sh <KEY> apply`, §6.5);
+      every `MANUAL` delta resolved; no pre-existing line reformatted
 
 **Test** (Phase 7)
 - [ ] Every acceptance criterion tested
@@ -92,6 +94,8 @@
 - [ ] REVIEW-CODE.md of the LLM repo → **APPROVED**
 - [ ] The four marker lines recorded: `REVIEW-CODE: APPROVED`, `VALIDATED-SHA:`,
       `COMPLETENESS: VERIFIED`, `DEVIATIONS:`
+- [ ] `tools/code-style.sh <KEY> verify` on the final commit → `CODE-STYLE: VERIFIED`, `STYLE-SHA`
+      = the same commit as `VALIDATED-SHA` (§9.5)
 
 **PR** (Phase 10)
 - [ ] Publication summary presented to the user; **user approved** (`PUSH-APPROVED` exists —

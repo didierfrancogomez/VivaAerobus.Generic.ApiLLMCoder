@@ -113,10 +113,10 @@ relative to `../VivaAerobus.Generic.ApiLLM/`.
 | 3 Coverage & feasibility | [`process/phase-03-coverage-feasibility.md`](process/phase-03-coverage-feasibility.md) | `process/ANALYZE-TASK.md` phases 4–5 |
 | 4 Blockers (GATE) | [`process/phase-04-blockers.md`](process/phase-04-blockers.md) | Question rules from `process/ANALYZE-TASK.md` §Phase 5 |
 | 5 Planning | [`process/phase-05-planning.md`](process/phase-05-planning.md) | `process/change-playbook.md` steps 1–6 + `guidelines/**` |
-| 6 Implementation | [`process/phase-06-implementation.md`](process/phase-06-implementation.md) | `guidelines/**` (normative) + `documents/architecture/conventions.md`, `patterns-cqrs.md` |
+| 6 Implementation | [`process/phase-06-implementation.md`](process/phase-06-implementation.md) | `guidelines/**` (normative) + `documents/architecture/conventions.md`, `patterns-cqrs.md` + **the `Ezy` code style as its last step** (`tools/code-style.sh <KEY> apply`, §6.5) |
 | 7 Testing | [`process/phase-07-testing.md`](process/phase-07-testing.md) | `documents/operations/testing.md` |
 | 8 Release prep | [`process/phase-08-release.md`](process/phase-08-release.md) | `documents/_meta/flags-and-rules.md` (kill switch / config parts) |
-| 9 Pre-review | [`process/phase-09-pre-review.md`](process/phase-09-pre-review.md) | **`process/REVIEW-CODE.md`** — APPROVED verdict mandatory |
+| 9 Pre-review | [`process/phase-09-pre-review.md`](process/phase-09-pre-review.md) | **`process/REVIEW-CODE.md`** — APPROVED verdict mandatory; **`tools/code-style.sh <KEY> verify`** — `CODE-STYLE: VERIFIED` mandatory (§9.5) |
 | 10 PR & review | [`process/phase-10-pr-review.md`](process/phase-10-pr-review.md) | — |
 | 11 Post-merge & closure | [`process/phase-11-post-merge.md`](process/phase-11-post-merge.md) | **Invoke the ApiLLM's `doc-sync`** to re-document what changed |
 
@@ -177,8 +177,8 @@ up. The gate artifact contract never shrinks with the level — only the depth o
 gate). Each task writes its artifacts there with **fixed names**; they are also posted as
 comments on the Jira ticket (the ticket is the project's memory — `deliver`/Annex D §D.2). The hooks in `.claude/` verify
 these files **mechanically** — until they exist, every write to the API repo is **blocked**
-(`PreToolUse` deny), and `git push` / `gh pr create` stay blocked until phases 7 and 9 pass, the
-approved commit is still HEAD, **and the user has approved publication** (`PUSH-APPROVED`):
+(`PreToolUse` deny), and `git push` / `gh pr create` stay blocked until the `Ezy` code style is
+verified and phases 7 and 9 pass, the approved commit is still HEAD, **and the user has approved publication** (`PUSH-APPROVED`):
 
 | Artifact (in `work/<KEY>/`) | Produced by | Unlocks |
 |---|---|---|
@@ -189,6 +189,7 @@ approved commit is still HEAD, **and the user has approved publication** (`PUSH-
 | `phase-03-feasibility.md` | Phase 3 | — |
 | `phase-04-verdict.md` with exactly ONE line `VERDICT: ✅` (or `⚠️`/`⛔`) at column 0 | Phase 4 | — |
 | `phase-05-plan.md` (ends with a `## Deviations (approved)` section) | Phase 5 | **writes to the API repo** (together with everything above and verdict ✅) |
+| `phase-06-code-style.md` with `CODE-STYLE: VERIFIED` + `STYLE-SHA: <commit>` — written **only** by `tools/code-style.sh <KEY> verify` | Phase 6 §6.5 (apply) → Phase 9 §9.5 (verify) | required for push/PR — void (denied) if HEAD drifts from `STYLE-SHA` |
 | `phase-07-testing.md` with the line `TESTS: GREEN` + full-suite output | Phase 7 | required for push/PR |
 | `phase-09-pre-review.md` with `REVIEW-CODE: APPROVED`, `VALIDATED-SHA: <commit>`, `COMPLETENESS: VERIFIED`, `DEVIATIONS: NONE\|APPROVED-AND-DOCUMENTED` | Phase 9 | **`git push` / `gh pr create`** — void (denied) if the code-repo HEAD drifts from `VALIDATED-SHA` |
 | `PUSH-APPROVED` | **human** | publication: the user's explicit approval of the push + PR (Phase 10 §10.0) |
@@ -233,6 +234,8 @@ approval** (`PUSH-APPROVED`, Phase 10 §10.0).
   contract is met **and the ApiLLM checkout is present** (rule 2) — a deterministic guard, not a
   sandbox (outer layers: PR review, GitHub permissions). Test suite: `.claude/hooks/tests/run-tests.sh` — run it after any hook change.
 - `tools/` = automation: `new-task.sh` (scaffold + intake), `new-run.sh` (immutable runs),
+  `code-style.sh` (the team's `Ezy` code style via `jb cleanupcode`, scoped to the task's lines —
+  Phase 6 §6.5 `apply`, Phase 9 §9.5 `verify`),
   `jira-sync/` (the Jira bridge — reads free; writes only via Phase 10 §10.1b behind the user's
   approval). `.claude/commands/implement.md` = `/implement <KEY>`, the single entry point.
 - `process/` = the mandatory process: one file per phase + the methodology

@@ -66,8 +66,13 @@ make_analysis() { # make_analysis <KEY> — full phase 0-5 artifacts, verdict �
   printf 'plan\n\n## Deviations (approved)\n' > "$D/phase-05-plan.md"
 }
 
-make_publication() { # make_publication <KEY> <sha> — phase 7 + 9 artifacts
+make_style() { # make_style <KEY> <sha> — what tools/code-style.sh verify writes on success
+  printf 'deltas...\nCODE-STYLE: VERIFIED\nSTYLE-SHA: %s\n' "$2" > "$WORK/$1/phase-06-code-style.md"
+}
+
+make_publication() { # make_publication <KEY> <sha> — Ezy style + phase 7 + 9 artifacts
   D="$WORK/$1"
+  make_style "$1" "$2"
   printf 'suite output...\nTESTS: GREEN\n' > "$D/phase-07-testing.md"
   printf 'REVIEW-CODE: APPROVED\nVALIDATED-SHA: %s\nCOMPLETENESS: VERIFIED\nDEVIATIONS: NONE\n' \
     "$2" > "$D/phase-09-pre-review.md"
@@ -170,6 +175,23 @@ check "push with APPROVED but no TESTS/SHA/COMPLETENESS/DEVIATIONS → deny" den
   "$(run_bash "$(bash_json "git -C $CODE push origin feat/ABC-1-x")")" "TESTS: GREEN"
 
 make_publication ABC-1 "$HEAD_SHA"
+rm -f "$WORK/ABC-1/phase-06-code-style.md"
+check "push without the Ezy code-style artifact → deny" deny \
+  "$(run_bash "$(bash_json "git -C $CODE push origin feat/ABC-1-x")")" "phase-06-code-style.md"
+
+printf 'CODE-STYLE: FAILED — 2 delta(s) on our lines\n' > "$WORK/ABC-1/phase-06-code-style.md"
+check "push with CODE-STYLE: FAILED → deny" deny \
+  "$(run_bash "$(bash_json "git -C $CODE push origin feat/ABC-1-x")")" "CODE-STYLE: VERIFIED"
+
+printf 'CODE-STYLE: VERIFIED\nSTYLE-SHA: UNCOMMITTED\n' > "$WORK/ABC-1/phase-06-code-style.md"
+check "push with style verified on uncommitted files → deny" deny \
+  "$(run_bash "$(bash_json "git -C $CODE push origin feat/ABC-1-x")")" "STYLE-SHA"
+
+printf '  CODE-STYLE: VERIFIED\nSTYLE-SHA: %s\n' "$HEAD_SHA" > "$WORK/ABC-1/phase-06-code-style.md"
+check "indented CODE-STYLE marker → deny (anchored match)" deny \
+  "$(run_bash "$(bash_json "git -C $CODE push origin feat/ABC-1-x")")" "CODE-STYLE: VERIFIED"
+
+make_style ABC-1 "$HEAD_SHA"
 check "push, everything present but no PUSH-APPROVED → deny" deny \
   "$(run_bash "$(bash_json "git -C $CODE push origin feat/ABC-1-x")")" "USER APPROVAL GATE"
 
@@ -180,8 +202,12 @@ check "push fully gated (tests+review+SHA+user approval) → allow" allow \
 git -C "$CODE" -c user.email=t@t -c user.name=t commit -q --allow-empty -m drift
 check "push after a new commit (diff drift) → deny" deny \
   "$(run_bash "$(bash_json "git -C $CODE push origin feat/ABC-1-x")")" "DIFF DRIFT"
+printf 'REVIEW-CODE: APPROVED\nVALIDATED-SHA: %s\nCOMPLETENESS: VERIFIED\nDEVIATIONS: NONE\n' \
+  "$(git -C "$CODE" rev-parse HEAD)" > "$WORK/ABC-1/phase-09-pre-review.md"
+check "push with review re-anchored but style still on the old commit → deny" deny \
+  "$(run_bash "$(bash_json "git -C $CODE push origin feat/ABC-1-x")")" "STYLE DRIFT"
 make_publication ABC-1 "$(git -C "$CODE" rev-parse HEAD)"
-check "push after re-anchoring VALIDATED-SHA → allow" allow \
+check "push after re-anchoring VALIDATED-SHA and STYLE-SHA → allow" allow \
   "$(run_bash "$(bash_json "git -C $CODE push origin feat/ABC-1-x")")"
 
 check "bash touch of HUMAN-GATE-OK → deny" deny \

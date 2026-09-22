@@ -40,6 +40,8 @@
        VALIDATED-SHA: <sha>      phase-09 — git -C <code-repo> rev-parse HEAD (squashed commit)
        COMPLETENESS: VERIFIED    phase-09 — ticket+plan+code audited, nothing uninvolved
        DEVIATIONS: NONE          phase-09 — or DEVIATIONS: APPROVED-AND-DOCUMENTED
+     CODE-STYLE: VERIFIED / STYLE-SHA are NOT written here: tools/code-style.sh <KEY> verify
+     writes them into phase-06-code-style.md (Phase 9 §9.5).
 -->
 
 
