@@ -3,8 +3,16 @@
     "additionalDirectories": [
       "../VivaAerobus.Generic.Api",
       "../VivaAerobus.Generic.ApiLLM"
+    ],
+    "allow": [
+      "mcp__atlassian__getAccessibleAtlassianResources",
+      "mcp__atlassian__atlassianUserInfo",
+      "mcp__atlassian__getVisibleJiraProjects",
+      "mcp__atlassian__searchJiraIssuesUsingJql",
+      "mcp__atlassian__getJiraIssue"
     ]
   },
+  "enabledMcpjsonServers": ["atlassian"],
   "hooks": {
     "SessionStart": [
       {
@@ -59,6 +67,11 @@
           {
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/ticket-watch.sh\"",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/ticket-picker-route.sh\"",
             "timeout": 10
           }
         ]

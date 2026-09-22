@@ -415,6 +415,31 @@ else
   FAIL=$((FAIL+1)); echo "  FAIL docs-sync enforcement rewrite"; echo "$OUT"
 fi
 
+# --- ticket-picker-route: GOLDEN RULE 6 routing ------------------------------
+echo "ticket-picker-route:"
+route() { # route <expect: yes|no> <prompt>
+  OUT="$(python3 -c 'import json,sys;print(json.dumps({"prompt":sys.argv[1],"session_id":"6552c816-f2e6-4af6"}))' "$2" \
+    | bash "$HOOKS_DIR/ticket-picker-route.sh" 2>/dev/null)"
+  GOT=no; printf '%s' "$OUT" | grep -q "jira-next-ticket-picker" && GOT=yes
+  if [ "$GOT" = "$1" ]; then
+    PASS=$((PASS+1)); echo "  ok   [$1] $2"
+  else
+    FAIL=$((FAIL+1)); echo "  FAIL [$1] $2 (got: $GOT)"
+  fi
+}
+route yes "¿Cuáles actividades podría tomar para desarrollar?"
+route yes "que ticket tomo ahora"
+route yes "¿Qué tarea sigue en el tablero?"
+route yes "¿Con cuál sigo?"
+route yes "Qué hay listo para desarrollo en Jira?"
+route yes "dame los 3 mejores tickets candidatos"
+route yes "Which ticket should I pick next?"
+route yes "what should I work on"
+route no  "/implement API-1908"
+route no  "retomemos el ticket API-1738"
+route no  "¿Cómo funciona el hook de self-update?"
+route no  "corre los tests de la fase 7"
+
 echo
 echo "passed: $PASS  failed: $FAIL"
 [ "$FAIL" = "0" ] || exit 1

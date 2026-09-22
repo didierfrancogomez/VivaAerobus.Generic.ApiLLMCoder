@@ -9,7 +9,7 @@
 
 ---
 
-## ⚠️ NON-NEGOTIABLE — The five rules that never break
+## ⚠️ NON-NEGOTIABLE — The six rules that never break
 
 1. **Analysis before code, always.** Phases 0–4 are completed BEFORE writing a single line. The
    Phase 4 gate decides: open hard blockers → **STOP and ask**; verdict ✅ and zero blockers →
@@ -53,6 +53,16 @@
    and the Phase 9 gate (`process/REVIEW-CODE.md`) applies that same bar — a 🐛/❗ finding blocks. If
    a guideline seems wrong or outdated, that is a finding for the ApiLLM owner, not a license to
    deviate.
+6. **GOLDEN RULE — "which ticket can I take?" has one answer path.** Any question about which
+   Jira ticket/task/activity to take, resume or develop next — or what is ready on the board, in
+   whatever words — is answered **only** by the skill
+   [`jira-next-ticket-picker`](.claude/skills/jira-next-ticket-picker/SKILL.md), executing
+   **every** step in order (the N question, the `In Progress` priority check, all eligibility
+   rules, the mandatory tables). Never from memory, from `work/`, or via `tools/jira-sync`: the
+   same question always gets the same procedure. It reads the live board through the `atlassian`
+   MCP (`.mcp.json`, read-only tools pre-allowed) and is 100% read-only. `hooks/ticket-picker-route.sh`
+   recognises these prompts and injects the rule. Choosing a ticket does not start Phase 0 —
+   `/implement <KEY>` does, when the developer decides.
 
 ---
 
@@ -235,7 +245,9 @@ approval** (`PUSH-APPROVED`, Phase 10 §10.0).
   sandbox (outer layers: PR review, GitHub permissions); `ticket-watch.sh` injects the Jira side
   of open tasks (test-matrix drift vs the accepted baseline, due-date state) from a cache it
   refreshes in the background — surface it to the user, write to Jira only on their yes (Annex D
-  §D.2). Test suites: `.claude/hooks/tests/run-tests.sh` + `ticket-watch-tests.sh` — run them after any hook change.
+  §D.2); `ticket-picker-route.sh` routes "which ticket next?" prompts to
+  `.claude/skills/jira-next-ticket-picker` (rule 6), whose Jira access is the `atlassian` MCP
+  declared in `.mcp.json`. Test suites: `.claude/hooks/tests/run-tests.sh` + `ticket-watch-tests.sh` — run them after any hook change.
 - `tools/` = automation: `new-task.sh` (scaffold + intake), `new-run.sh` (immutable runs),
   `code-style.sh` (the team's `Ezy` code style via `jb cleanupcode`, scoped to the task's lines —
   Phase 6 §6.5 `apply`, Phase 9 §9.5 `verify`),
