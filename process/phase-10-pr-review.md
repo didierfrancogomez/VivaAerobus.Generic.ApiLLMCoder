@@ -111,6 +111,14 @@ evidence naming is `Issue`/`Solution` per PRC-104. Record the run in `delivery-s
 **When comments come back** (PR review or QA rejection returning the ticket to In Progress — a
 *devolución*, counted in the ticket header; normal, not a crisis), the loop is:
 
+0. **Re-estimate and re-date first** — a devolution or a block is time the due date does not
+   know about yet. `jira_sync.py matrix <KEY>` (what the return changed in the matrix → rework
+   window) and `jira_sync.py deadline <KEY>` (flags `NEEDS-UPDATE` for every devolution, block
+   or estimate change after the date was set, and warns when a devolution was never followed by
+   an estimate increase). Propose to the user: the estimate to add and the new due date (= grab
+   day + the *new* estimate + blocked days, working days). Only on their yes, dry-run first:
+   `estimate <KEY> --add <dur>` then `deadline <KEY> --apply` (or `--set <their date>`). Same
+   when a block ends (Phase 4 ⚠️/⛔ resolved): the block's working days move the date.
 1. **Open a fresh run**: `tools/new-run.sh <KEY>` — archives phase-07/09 + `PUSH-APPROVED` into
    `validation/run-NNN/` and mechanically re-closes the publication gates. Old evidence never
    validates new code.

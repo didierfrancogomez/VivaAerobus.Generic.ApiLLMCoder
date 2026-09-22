@@ -33,7 +33,14 @@ review, fixes applied) covers Jira. The rules per direction:
 2. **Output (WRITE — always behind the user):** evidence upload, comments, labels, status
    transitions and unassignment happen ONLY through `deliver` (Phase 10 §10.1b), covered by the
    same explicit approval that signs `PUSH-APPROVED`, and always `--dry-run` first with the plan
-   shown to the user. Ad-hoc Jira writes outside `deliver` do not exist.
+   shown to the user. The only other writes are the **planning fields**: `estimate <KEY>
+   --add/--set` (original + remaining estimate) and `deadline <KEY> --set/--apply` (due date) —
+   each proposed with its reason (rework window, formula), executed only on the user's explicit
+   yes for that change, `--dry-run` first (Phase 0 §0.0.4, Phase 10 §10.2.0). Ad-hoc Jira writes
+   outside `deliver`, `estimate` and `deadline` do not exist.
+   **Watch (READ, automated):** the `ticket-watch` hook refreshes `jira_sync.py watch` in the
+   background (≤ every 30 min) and injects matrix drift + deadline state into every prompt; it
+   never writes to Jira, and its baseline only moves by `matrix --accept`.
 3. **Comment texts** are still drafted in the phase artifact under `## Ticket comment (pending
    publication)` with the `PUBLICATION:` line — `deliver --comment` (or the user posting by
    hand) flips it to `posted <date>`.

@@ -22,3 +22,6 @@ work/*/ticket-snapshots/
 work/*/config-backups/
 work/*/evidence/upload/
 work/*/evidence/screenshots/
+# - ticket-watch hook state (lock + last background run log; the per-task cache lives in
+#   work/*/ticket-snapshots/, already ignored above)
+work/.ticket-watch/

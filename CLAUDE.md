@@ -232,7 +232,10 @@ approval** (`PUSH-APPROVED`, Phase 10 §10.0).
   (saying so in the answer); `pipeline-state.sh` injects the gate state into every prompt;
   `guard-writes.sh`/`guard-bash.sh` block API-repo writes and publication until the artifact
   contract is met **and the ApiLLM checkout is present** (rule 2) — a deterministic guard, not a
-  sandbox (outer layers: PR review, GitHub permissions). Test suite: `.claude/hooks/tests/run-tests.sh` — run it after any hook change.
+  sandbox (outer layers: PR review, GitHub permissions); `ticket-watch.sh` injects the Jira side
+  of open tasks (test-matrix drift vs the accepted baseline, due-date state) from a cache it
+  refreshes in the background — surface it to the user, write to Jira only on their yes (Annex D
+  §D.2). Test suites: `.claude/hooks/tests/run-tests.sh` + `ticket-watch-tests.sh` — run them after any hook change.
 - `tools/` = automation: `new-task.sh` (scaffold + intake), `new-run.sh` (immutable runs),
   `code-style.sh` (the team's `Ezy` code style via `jb cleanupcode`, scoped to the task's lines —
   Phase 6 §6.5 `apply`, Phase 9 §9.5 `verify`),

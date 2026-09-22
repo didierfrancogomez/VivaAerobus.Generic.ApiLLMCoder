@@ -43,6 +43,14 @@ if [ -x "$PY" ] && [ -f "$JS/.env" ]; then
   else
     echo "⛔ NOT READY (see blockers above) — per Phase 0/§ready, report them to the requester; do NOT start"
   fi
+  # Matrix baseline (only if none yet): what later spec changes are measured against. Exit 3 =
+  # findings (e.g. description ≠ subtask) — reported, not fatal.
+  echo "— test-matrix baseline —"
+  (cd "$JS" && "$PY" jira_sync.py matrix "$KEY" --init --work-dir "$ROOT/work") || true
+  # Due date vs the rule (grab day + estimate + blocked days). Read-only: writing it needs the
+  # user's yes (Phase 0 §0.0.4).
+  echo "— due date —"
+  (cd "$JS" && "$PY" jira_sync.py deadline "$KEY") || echo "⚠ deadline check failed — do it by hand in Phase 0 §0.0.4"
 else
   echo "· jira-sync not configured (tools/jira-sync/README.md) — Phase 0 runs from user-provided ticket content (Annex D §D.2)"
 fi

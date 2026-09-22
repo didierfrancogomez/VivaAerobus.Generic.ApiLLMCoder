@@ -23,6 +23,16 @@ imperfect summary of a conversation that already happened.
    description**, not the ticket description (they can disagree). **Comments retire or add
    rows** ("I will remove TC02…") — a retired row is out of scope. Test-user credentials arriving
    in comments are never copied into tracked files.
+4. **Matrix baseline + due date (automated by `new-task.sh`, read-only):** `jira_sync.py matrix
+   <KEY> --init` stores the matrix every later spec change is measured against (the
+   `ticket-watch` hook compares against it on every prompt); an `OUT-OF-SYNC` finding at intake
+   (description ≠ subtask) is a question for the requester. `jira_sync.py deadline <KEY>` checks
+   the due date against the rule — **the day you grabbed the ticket + the original estimate in
+   working days (8h = 1d, rounded up) + the working days spent blocked**. State `MISSING`,
+   `NEEDS-UPDATE` or `DIFFERS` → present the suggested date with its formula and **ask the user
+   which date to set**; only on their explicit yes: `deadline <KEY> --set <date> --dry-run`, then
+   without `--dry-run`. `NO-ESTIMATE` → ask for the estimate first (`estimate <KEY> --set …`,
+   same approval rule). Record the agreed date in `delivery-state.md`.
 
 ## 0.1 Reading and classification
 

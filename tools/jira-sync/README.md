@@ -78,6 +78,13 @@ from Jira comments is only used for read-only `gh pr view`.
 | `python jira_sync.py time API-9999 add --spent 1d --date 2026-09-08 [--start 09:00] [--tz -06:00] [--note "…"] [--dry-run]` | Log time (Jira day = 8h; `2h30m`, `45m` or decimal hours). Refuses an identical same-day entry unless `--force` |
 | `python jira_sync.py time API-9999 edit <id> [--spent …] [--date …] [--start …] [--note …] [--dry-run]` | Fix one of **your** entries (a teammate's entry is refused) |
 | `python jira_sync.py time API-9999 delete <id> [--dry-run]` | Remove one of your entries. `--leave-estimate` on any write keeps the remaining estimate untouched |
+| `python jira_sync.py matrix API-9999 [--init \| --accept] [--json]` | **Spec-change detector**: both matrices (description + evidence subtask) compared cell by cell against the accepted baseline in `work/<KEY>/ticket-snapshots/matrix-baseline.json` → `ADDED` / `SPEC-CHANGED` (re-implement likely) · `META-CHANGED` / `RESULT-STALE` (re-run, update the subtask result) · `REMOVED` · `OUT-OF-SYNC` (description ≠ subtask) · `NEW-COMMENT`, plus a suggested rework window. Exit 3 = findings. `--init` saves a baseline only if none exists; `--accept` replaces it (history kept as `matrix-baseline-<ts>.json`) |
+| `python jira_sync.py estimate API-9999 [--add 6h \| --set 3d] [--remaining 1d] [--dry-run]` | Show / change the original + remaining estimate (`--add` raises both — the rework case) |
+| `python jira_sync.py deadline API-9999 [--set 2026-09-30 \| --apply] [--json] [--dry-run]` | Due date vs the rule: **grab day** (first In Progress while assigned to you) **+ original estimate** (8h = 1d, rounded up) **+ blocked days** (weekday hours in `DEADLINE_BLOCKED_STATUSES`, default `blocked,paused,on hold,to be discussed`, ÷24, rounded), counted in working days (`DEADLINE_HOLIDAYS=2026-09-16,…` adds holidays). States: `OK` · `MISSING` · `NEEDS-UPDATE` (a devolution, block or estimate change after the date was set) · `DIFFERS` · `NO-ESTIMATE` · `NOT-GRABBED` · `CLOSED`. `--apply` writes the suggested date |
+| `python jira_sync.py watch API-1 API-2 … [--work-dir DIR]` | What the `ticket-watch` hook runs in the background: `matrix` + `deadline` per key → `work/<KEY>/ticket-snapshots/watch.txt`. Read-only on Jira |
+
+`estimate` and `deadline` write to Jira: only on the user's explicit yes, `--dry-run` first
+(Annex D §D.2). Offline tests for the matrix/deadline logic: `python test_ticket_watch.py`.
 
 ### `deliver`
 

@@ -292,7 +292,7 @@ def fetch_single_issue(issue_key: str) -> dict:
         params={
             "fields": "summary,description,status,assignee,created,"
                       "timeoriginalestimate,timespent,worklog,comment,attachment,labels,"
-                      "subtasks",
+                      "subtasks,duedate,timetracking",
             "expand": "changelog",
         },
     )
@@ -405,7 +405,7 @@ def fetch_all_assigned_issues(
             "fields": [
                 "summary", "description", "status", "assignee", "created",
                 "timeoriginalestimate", "timespent", "worklog", "comment", "attachment",
-                "labels", "subtasks",
+                "labels", "subtasks", "duedate", "timetracking",
             ],
         }
         if next_page_token:
@@ -859,11 +859,14 @@ def seconds_to_human(seconds: int | float | None) -> str:
 
 
 def parse_jira_date(date_str: Optional[str]) -> Optional[datetime]:
+    """'2026-09-08T16:00:59.123-0600' / '2026-09-08' → datetime. Slicing the string to 26
+    characters (the previous approach) cut the UTC offset off every Jira timestamp, so this
+    returned None for all of them and Start Date / Deadline in the dumps were always Unknown."""
     if not date_str:
         return None
     for fmt in ("%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%d"):
         try:
-            return datetime.strptime(date_str[:26], fmt[:len(fmt)])
+            return datetime.strptime(date_str, fmt)
         except ValueError:
             continue
     return None
@@ -1361,21 +1364,20 @@ def process_issue(issue: dict, output_dir: Path, folder_override: str | None = N
     estimated_seconds: int = fields.get("timeoriginalestimate") or 0
     estimated_display = seconds_to_human(estimated_seconds)
 
-    # Deadline = start + estimated * 1.2  (in calendar days, assuming 8h/day)
-    deadline_str = "N/A"
+    # Deadline = the Jira due date; the rule (grab day + estimate + blocked days, working days —
+    # see deadline_state) is shown next to it so a drift is visible in every dump.
+    deadline_str = fields.get("duedate") or "not set"
     available_time_str = "N/A"
-    if start_dt and estimated_seconds:
-        work_hours_with_buffer = estimated_seconds / 3600 * 1.2
-        work_days = math.ceil(work_hours_with_buffer / 8)
-        deadline_dt = start_dt.replace(tzinfo=None) + timedelta(days=work_days)
-        deadline_str = deadline_dt.strftime("%Y-%m-%d")
-
-        now = datetime.now()
-        delta = deadline_dt - now
-        if delta.total_seconds() >= 0:
-            available_time_str = f"{delta.days}d remaining (deadline {deadline_str})"
-        else:
-            available_time_str = f"OVERDUE by {abs(delta.days)}d (deadline {deadline_str})"
+    try:
+        dl = deadline_state(key, me_id=_my_account_id(), issue=issue,
+                            histories=issue.get("changelog", {}).get("histories", []))
+        deadline_str += f"  · rule: {dl['suggested'] or 'n/a'} [{dl['state']}]"
+        if fields.get("duedate") and dl["state"] != "CLOSED":
+            left = (date.fromisoformat(fields["duedate"]) - date.today()).days
+            available_time_str = (f"{left}d remaining (calendar)" if left >= 0
+                                  else f"OVERDUE by {-left}d")
+    except Exception as exc:  # the dump never fails on the deadline
+        deadline_str += f"  · rule: unavailable ({exc})"
 
     # ── Worklogs (all team members) ─────────────────────────────────────────
     try:
@@ -1468,7 +1470,7 @@ def process_issue(issue: dict, output_dir: Path, folder_override: str | None = N
         f"Assignee     : {current_assignee}",
         f"Start Date   : {start_date_str}",
         f"Estimated    : {estimated_display}",
-        f"Deadline     : {deadline_str}  (start + estimate + 20% buffer)",
+        f"Deadline     : {deadline_str}  (due date · rule = grab day + estimate + blocked, working days)",
         f"Avail. Time  : {available_time_str}",
         f"Devoluciones : {devoluciones}  (InReview→InProgress rejections)",
         f"PR           : #{pr_number} ({effective_repo})" if pr_number else "PR           : None found",
@@ -1716,6 +1718,16 @@ def get_date_range(args: list[str]) -> dict:
 def get_current_user() -> dict:
     """Return the authenticated user's Jira profile."""
     return _get("/rest/api/3/myself")
+
+
+_MY_ACCOUNT_ID: Optional[str] = None
+
+
+def _my_account_id() -> Optional[str]:
+    global _MY_ACCOUNT_ID
+    if _MY_ACCOUNT_ID is None:
+        _MY_ACCOUNT_ID = get_current_user().get("accountId")
+    return _MY_ACCOUNT_ID
 
 
 def _search_jql_timesheet(jql: str) -> list[dict]:
@@ -2516,8 +2528,671 @@ def deliver_ticket(argv: list[str]) -> None:
     print("\nDone." if not args.dry_run else "\nDry run complete — nothing changed.")
 
 
+# ===========================================================================
+# Ticket watch — test-matrix drift, rework window, estimate and deadline
+# ===========================================================================
+#
+# The matrix is compared as DATA (the ADF table cells), never as the rendered dump: a text diff
+# of two dumps is dominated by worklogs, status, assignee and new comments (148 changed lines
+# between two API-1738 snapshots, none of them a spec change), so a moved requirement drowns.
+# Baselines are ACCEPTED explicitly (`matrix --accept`), never advanced by a check — a warning
+# that silently clears itself the next time it is looked at is no warning.
+
+_MATRIX_ID_COLS = ("#", "tc", "id", "row")
+_MATRIX_RESULT_COLS = {"execution result", "result", "resultado", "evidences", "evidence", "evidencias"}
+# A change in one of these needs a re-run, not new code. Every column that is neither listed here
+# nor a result/id column counts as SPEC: an unknown column changing is assumed to move the
+# requirement (when in doubt, one level up).
+_MATRIX_META_COLS = {"execution", "postman update?", "postman update", "notes", "notas", "comments",
+                     "automated", "automated?"}
+MATRIX_BASELINE = "matrix-baseline.json"
+WATCH_CACHE = "watch.txt"
+
+# Rework heuristics (hours, low–high) per affected row; tune them against real worklogs.
+REWORK_HOURS = {
+    "reimplement": (2.0, 4.0),   # new or spec-changed row: code + test + evidence
+    "retest": (0.5, 1.0),        # meta change or stale result: re-run + evidence + subtask cell
+    "sync": (0.25, 0.5),         # description ↔ subtask disagreement: align the subtask
+    "retired": (0.25, 0.5),      # removed row: drop its S-NN, clear its result
+}
+# Once any code changes: new validation run, REVIEW-CODE, re-review, re-deliver.
+REWORK_OVERHEAD_HOURS = (2.0, 3.0)
+
+_FINDING_BUCKET = {"ADDED": "reimplement", "SPEC-CHANGED": "reimplement", "META-CHANGED": "retest",
+                   "RESULT-STALE": "retest", "OUT-OF-SYNC": "sync", "REMOVED": "retired"}
+_FINDING_ACTION = {
+    "ADDED": "new test case → implement + test + evidence",
+    "SPEC-CHANGED": "requirement moved → re-implement likely (back through Phase 4/5)",
+    "REMOVED": "retired → drop its S-NN and clear its subtask result",
+    "META-CHANGED": "execution details changed → re-run only",
+    "RESULT-STALE": "subtask result was recorded against the old spec → re-run and update the subtask result",
+    "OUT-OF-SYNC": "description and subtask disagree → the subtask is authoritative (Phase 0 §0.0.3): "
+                   "confirm which is right, then align the subtask",
+    "NEW-COMMENT": "read it — comments retire or add rows",
+}
+
+
+def _norm(text: str | None) -> str:
+    return re.sub(r"\s+", " ", text or "").strip()
+
+
+def _col_class(header: str) -> str:
+    h = _norm(header).lower()
+    if h in _MATRIX_ID_COLS:
+        return "id"
+    if h in _MATRIX_RESULT_COLS:
+        return "result"
+    if h in _MATRIX_META_COLS:
+        return "meta"
+    return "spec"
+
+
+def _row_sort_key(rid: str):
+    return (0, int(rid), "") if rid.isdigit() else (1, 0, rid)
+
+
+def _find_matrix_table(desc) -> Optional[dict]:
+    """The test matrix: the first table whose header names a test description or an expected
+    result, else the first table of the document (the same one `jira_update_matrix` writes)."""
+    if not isinstance(desc, dict):
+        return None
+    tables: list[dict] = []
+
+    def walk(node):
+        if isinstance(node, dict):
+            if node.get("type") == "table":
+                tables.append(node)
+                return
+            for child in node.get("content") or []:
+                walk(child)
+    walk(desc)
+    for table in tables:
+        first = next((r for r in table.get("content") or [] if r.get("type") == "tableRow"), None)
+        header = " ".join(_adf_cell_text(c).lower() for c in (first or {}).get("content") or [])
+        if "expected" in header or "test case" in header:
+            return table
+    return tables[0] if tables else None
+
+
+def extract_matrix(desc) -> list[dict]:
+    """ADF description → [{"id": "3", "fields": {"expected result": "…", …}}]. Rows are keyed on the
+    '#'/'TC'/'Id' column when there is one, else on their position."""
+    table = _find_matrix_table(desc)
+    if not table:
+        return []
+    rows = [r for r in table.get("content") or [] if r.get("type") == "tableRow"]
+    if len(rows) < 2:
+        return []
+    header = [_norm(_adf_cell_text(c)).lower() for c in rows[0].get("content") or []]
+    id_col = next((header.index(n) for n in _MATRIX_ID_COLS if n in header), None)
+    out: list[dict] = []
+    for pos, row in enumerate(rows[1:], start=1):
+        cells = [_norm(_adf_cell_text(c)) for c in row.get("content") or []]
+        if not any(cells):
+            continue
+        fields = {(header[j] if j < len(header) and header[j] else f"col{j + 1}"): v for j, v in enumerate(cells)}
+        rid = cells[id_col] if id_col is not None and id_col < len(cells) and cells[id_col] else str(pos)
+        out.append({"id": _matrix_row_id(rid), "fields": fields})
+    return out
+
+
+def _comment_refs(comments: list[dict], source: str) -> list[dict]:
+    return [{"id": str(c.get("id")), "source": source,
+             "author": (c.get("author") or {}).get("displayName", ""),
+             "created": (c.get("created") or "")[:16].replace("T", " ")} for c in comments or []]
+
+
+def fetch_matrix_state(key: str) -> dict:
+    """The spec-bearing state of a ticket: both matrices (description + evidence subtask) and the
+    comment ids of both issues. Read-only."""
+    data = _get(f"/rest/api/3/issue/{key}", params={"fields": "summary,status,description,subtasks,comment"})
+    f = data.get("fields") or {}
+    sub_key = next((s["key"] for s in f.get("subtasks") or []
+                    if _norm((s.get("fields") or {}).get("summary")).lower() == EVIDENCE_SUBTASK_SUMMARY.lower()),
+                   None)
+    sub_rows: list[dict] = []
+    comments = _comment_refs(fetch_all_comments(key, f.get("comment")), key)
+    if sub_key:
+        sd = (_get(f"/rest/api/3/issue/{sub_key}", params={"fields": "description,comment"}).get("fields") or {})
+        sub_rows = extract_matrix(sd.get("description"))
+        comments += _comment_refs(fetch_all_comments(sub_key, sd.get("comment")), sub_key)
+    return {
+        "key": key,
+        "summary": f.get("summary") or "",
+        "status": (f.get("status") or {}).get("name") or "",
+        "fetched_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "subtask_key": sub_key,
+        "description": extract_matrix(f.get("description")),
+        "subtask": sub_rows,
+        "comments": comments,
+    }
+
+
+def _changed_cols(old: dict, new: dict, cls: str) -> list[str]:
+    return sorted(c for c in set(old) | set(new)
+                  if _col_class(c) == cls and _norm(old.get(c)) != _norm(new.get(c)))
+
+
+def _result_of(fields: dict) -> str:
+    return next((_norm(v) for k, v in fields.items() if _norm(k).lower() in ("execution result", "result", "resultado")), "")
+
+
+def diff_matrix(base: Optional[dict], cur: dict) -> list[dict]:
+    """
+    Findings between an accepted baseline and the current state, most actionable first:
+    ADDED / REMOVED / SPEC-CHANGED / META-CHANGED per source (the subtask is authoritative,
+    the description is still watched because QA edits it too), RESULT-STALE (a result that
+    survived a change of its row), OUT-OF-SYNC (description vs subtask, current state only —
+    needs no baseline) and NEW-COMMENT. Result/evidence cells never count as spec.
+    """
+    findings: list[dict] = []
+    touched: set[str] = set()      # rows whose spec/meta moved since the baseline, any source
+
+    def add(kind, row, source, cols=None, detail=""):
+        findings.append({"kind": kind, "row": row, "source": source, "cols": cols or [],
+                         "detail": detail, "action": _FINDING_ACTION[kind]})
+
+    if base is not None:
+        for source in ("subtask", "description"):
+            old = {r["id"]: r["fields"] for r in base.get(source) or []}
+            new = {r["id"]: r["fields"] for r in cur.get(source) or []}
+            if not old and not new:
+                continue
+            for rid in sorted(new.keys() - old.keys(), key=_row_sort_key):
+                add("ADDED", rid, source)
+            for rid in sorted(old.keys() - new.keys(), key=_row_sort_key):
+                add("REMOVED", rid, source, detail=f"had result '{_result_of(old[rid])}'" if _result_of(old[rid]) else "")
+            for rid in sorted(old.keys() & new.keys(), key=_row_sort_key):
+                spec = _changed_cols(old[rid], new[rid], "spec")
+                meta = _changed_cols(old[rid], new[rid], "meta")
+                if spec:
+                    add("SPEC-CHANGED", rid, source, spec)
+                elif meta:
+                    add("META-CHANGED", rid, source, meta)
+                if spec or meta:
+                    touched.add(rid)
+        old_sub = {r["id"]: r["fields"] for r in base.get("subtask") or []}
+        for r in cur.get("subtask") or []:
+            rid, res = r["id"], _result_of(r["fields"])
+            if rid in touched and res and res == _result_of(old_sub.get(rid, {})):
+                add("RESULT-STALE", rid, "subtask", detail=f"still '{res}'")
+
+    desc = {r["id"]: r["fields"] for r in cur.get("description") or []}
+    sub = {r["id"]: r["fields"] for r in cur.get("subtask") or []}
+    if desc and sub:
+        for rid in sorted(desc.keys() | sub.keys(), key=_row_sort_key):
+            if rid not in sub:
+                add("OUT-OF-SYNC", rid, "description", detail="row missing in the subtask")
+            elif rid not in desc:
+                add("OUT-OF-SYNC", rid, "subtask", detail="row missing in the description")
+            else:
+                common = {c for c in set(desc[rid]) & set(sub[rid]) if _col_class(c) in ("spec", "meta")}
+                diff = sorted(c for c in common if _norm(desc[rid][c]) != _norm(sub[rid][c]))
+                if diff:
+                    add("OUT-OF-SYNC", rid, "both", diff)
+
+    if base is not None:
+        seen = {c["id"] for c in base.get("comments") or []}
+        for c in cur.get("comments") or []:
+            if c["id"] not in seen:
+                findings.append({"kind": "NEW-COMMENT", "row": "", "source": c["source"], "cols": [],
+                                 "detail": f"{c['created']} {c['author']}", "action": _FINDING_ACTION["NEW-COMMENT"]})
+    return findings
+
+
+def _round_half_hour_up(hours: float) -> float:
+    return math.ceil(hours * 2) / 2
+
+
+def rework_window(findings: list[dict]) -> tuple[float, float, list[str]]:
+    """Suggested (low, high) hours for the findings, one bucket per row (a row that is both
+    SPEC-CHANGED and RESULT-STALE is costed once, as re-implementation)."""
+    rank = ["reimplement", "retest", "sync", "retired"]
+    per_row: dict[str, str] = {}
+    for f in findings:
+        bucket = _FINDING_BUCKET.get(f["kind"])
+        if not bucket or not f["row"]:
+            continue
+        prev = per_row.get(f["row"])
+        if prev is None or rank.index(bucket) < rank.index(prev):
+            per_row[f["row"]] = bucket
+    low = high = 0.0
+    lines: list[str] = []
+    for bucket in rank:
+        rows = sorted((r for r, b in per_row.items() if b == bucket), key=_row_sort_key)
+        if rows:
+            lo, hi = REWORK_HOURS[bucket]
+            low += lo * len(rows)
+            high += hi * len(rows)
+            lines.append(f"{bucket}: row(s) {', '.join(rows)} × {lo:g}–{hi:g}h")
+    if "reimplement" in per_row.values():
+        low += REWORK_OVERHEAD_HOURS[0]
+        high += REWORK_OVERHEAD_HOURS[1]
+        lines.append(f"overhead (new run, REVIEW-CODE, re-review, re-deliver): "
+                     f"{REWORK_OVERHEAD_HOURS[0]:g}–{REWORK_OVERHEAD_HOURS[1]:g}h")
+    return _round_half_hour_up(low), _round_half_hour_up(high), lines
+
+
+def _hours_str(hours: float) -> str:
+    return f"{hours:g}h"
+
+
+def _window_str(low: float, high: float) -> str:
+    return _hours_str(high) if low == high else f"{_hours_str(low)}–{_hours_str(high)}"
+
+
+def _coder_work_dir(arg: Optional[str]) -> Optional[Path]:
+    if arg:
+        return Path(arg)
+    env = os.getenv("CODER_WORK_DIR")
+    if env:
+        return Path(env)
+    guess = Path(__file__).resolve().parents[2] / "work"
+    return guess if guess.is_dir() else None
+
+
+def _snapshots_dir(work: Optional[Path], key: str) -> Optional[Path]:
+    return work / key / "ticket-snapshots" if work else None
+
+
+def _load_baseline(snap: Optional[Path]) -> Optional[dict]:
+    if not snap or not (snap / MATRIX_BASELINE).is_file():
+        return None
+    return json.loads((snap / MATRIX_BASELINE).read_text(encoding="utf-8"))
+
+
+def _save_baseline(snap: Path, state: dict) -> Path:
+    snap.mkdir(parents=True, exist_ok=True)
+    text = json.dumps(state, ensure_ascii=False, indent=2)
+    stamp = datetime.now().strftime("%Y-%m-%d-%H%M")
+    (snap / f"matrix-baseline-{stamp}.json").write_text(text, encoding="utf-8", newline="\n")   # audit trail
+    (snap / MATRIX_BASELINE).write_text(text, encoding="utf-8", newline="\n")
+    return snap / MATRIX_BASELINE
+
+
+def _finding_line(f: dict) -> str:
+    where = f"row {f['row']}" if f["row"] else "comment"
+    cols = f" [{', '.join(f['cols'])}]" if f["cols"] else ""
+    detail = f" ({f['detail']})" if f["detail"] else ""
+    return f"{where:<8} {f['kind']:<13} {f['source']}{cols}{detail} → {f['action']}"
+
+
+def matrix_command(argv: list[str]) -> None:
+    """
+    `matrix` — test-matrix drift since the accepted baseline (read-only unless --accept).
+
+        python jira_sync.py matrix API-9999 [--accept | --init] [--json] [--work-dir DIR]
+
+    Exit code: 0 no findings · 3 findings · 1 error. --accept saves the current state as the new
+    baseline (do it once the changes are handled: plan updated, subtask aligned); --init does so
+    only when no baseline exists yet (intake).
+    """
+    import argparse
+    parser = argparse.ArgumentParser(prog="jira_sync.py matrix")
+    parser.add_argument("issue_key")
+    parser.add_argument("--accept", action="store_true", help="save the current matrix as the baseline")
+    parser.add_argument("--init", action="store_true", help="save a baseline only if none exists")
+    parser.add_argument("--json", action="store_true")
+    parser.add_argument("--work-dir", help="the Coder's work/ dir (default: ../../work beside this script)")
+    args = parser.parse_args(argv)
+    key = args.issue_key.upper()
+
+    snap = _snapshots_dir(_coder_work_dir(args.work_dir), key)
+    base = _load_baseline(snap)
+    cur = fetch_matrix_state(key)
+    findings = diff_matrix(base, cur)
+    low, high, breakdown = rework_window(findings)
+
+    if args.json:
+        print(json.dumps({"key": key, "baseline_at": (base or {}).get("fetched_at"), "findings": findings,
+                          "window_hours": [low, high], "breakdown": breakdown}, ensure_ascii=False, indent=2))
+    else:
+        print(f"Ticket   : {key} — {cur['summary']}  [{cur['status']}]")
+        print(f"Matrix   : {len(cur['subtask'])} row(s) in subtask {cur['subtask_key'] or '(none)'} · "
+              f"{len(cur['description'])} row(s) in the description")
+        print(f"Baseline : {(base or {}).get('fetched_at') or 'NONE — only description↔subtask sync is checked'}"
+              + (f"  ({snap / MATRIX_BASELINE})" if base else ""))
+        if not findings:
+            print("\n✔ No matrix changes.")
+        else:
+            print(f"\n⚠  {len(findings)} finding(s):")
+            for f in findings:
+                print("  " + _finding_line(f))
+            if breakdown:
+                print(f"\nSuggested rework window: {_window_str(low, high)}")
+                for line in breakdown:
+                    print(f"  {line}")
+                print(f"  → to add it: python jira_sync.py estimate {key} --add <duration> --dry-run  "
+                      "(only with the user's yes)")
+
+    if args.accept or (args.init and base is None):
+        if not snap:
+            print("⛔ no work/ dir found — pass --work-dir")
+            sys.exit(1)
+        print(f"\n✔ baseline saved → {_save_baseline(snap, cur)}")
+    sys.exit(3 if findings else 0)
+
+
+# --- Deadline ---------------------------------------------------------------
+#
+# Due date = the day YOU grabbed the ticket (first In Progress while assigned to you)
+#            + the original estimate in working days (8h = 1d, rounded up)
+#            + the working days it spent blocked since.
+# A devolution's rework enters through the estimate: add it (`estimate --add`) and the date moves.
+# The formula is a suggestion; the date written to Jira is always the one the user approved.
+
+_DAY_SECONDS = 8 * 3600
+DEADLINE_BLOCKED_STATUSES = tuple(
+    s.strip().lower() for s in
+    (os.getenv("DEADLINE_BLOCKED_STATUSES") or "blocked,paused,on hold,to be discussed").split(",") if s.strip())
+# Non-working days besides weekends, e.g. DEADLINE_HOLIDAYS=2026-09-16,2026-11-02
+DEADLINE_HOLIDAYS = {s.strip() for s in (os.getenv("DEADLINE_HOLIDAYS") or "").split(",") if s.strip()}
+
+
+def _is_working_day(d: date) -> bool:
+    return d.weekday() < 5 and d.isoformat() not in DEADLINE_HOLIDAYS
+
+
+def add_working_days(start: date, days: int) -> date:
+    d = start
+    while days > 0:
+        d += timedelta(days=1)
+        if _is_working_day(d):
+            days -= 1
+    return d
+
+
+def _working_hours_between(a: datetime, b: datetime) -> float:
+    """Elapsed hours between a and b that fall on working days (weekends/holidays excluded)."""
+    total, cur = 0.0, a
+    while cur < b:
+        nxt = min(b, datetime.combine(cur.date() + timedelta(days=1), datetime.min.time(), tzinfo=cur.tzinfo))
+        if _is_working_day(cur.date()):
+            total += (nxt - cur).total_seconds() / 3600
+        cur = nxt
+    return total
+
+
+def _is_blocked(status: str) -> bool:
+    s = (status or "").lower()
+    return any(b in s for b in DEADLINE_BLOCKED_STATUSES)
+
+
+def deadline_state(key: str, me_id: Optional[str] = None,
+                   issue: Optional[dict] = None, histories: Optional[list[dict]] = None,
+                   today: Optional[date] = None) -> dict:
+    """Compute the suggested due date and whether the current one needs updating. Read-only.
+    `issue`/`histories`/`today` are injectable for tests."""
+    if issue is None:
+        issue = _get(f"/rest/api/3/issue/{key}", params={"fields": "summary,status,duedate,timetracking"})
+    if histories is None:
+        histories = fetch_changelog(key)
+    if me_id is None:
+        me_id = _my_account_id()
+    f = issue.get("fields") or {}
+    status = (f.get("status") or {}).get("name") or ""
+    due = f.get("duedate")
+    est_s = int((f.get("timetracking") or {}).get("originalEstimateSeconds") or 0)
+
+    assignee = cur_status = None
+    grab = blocked_since = last_due_set = None
+    blocked_h = 0.0
+    events: list[tuple[str, datetime, str]] = []       # (kind, when, detail) after the grab
+    for h in sorted(histories, key=lambda x: x.get("created", "")):
+        ts = parse_jira_date(h.get("created"))
+        # assignee first: a grab is often one history holding both "→ In Progress" and "→ me"
+        for it in sorted(h.get("items") or [], key=lambda i: 0 if i.get("field") == "assignee" else 1):
+            fld = it.get("field")
+            if fld == "assignee":
+                assignee = it.get("to")
+                if grab is None and assignee == me_id and "progress" in (cur_status or ""):
+                    grab = ts
+            elif fld == "status":
+                frm, to = (it.get("fromString") or "").lower(), (it.get("toString") or "").lower()
+                cur_status = to
+                if grab is None:
+                    if "progress" in to and assignee == me_id:
+                        grab = ts
+                    continue
+                if _is_blocked(to) and blocked_since is None:
+                    blocked_since = ts
+                elif not _is_blocked(to) and blocked_since is not None:
+                    blocked_h += _working_hours_between(blocked_since, ts)
+                    events.append(("unblocked", ts, f"{frm} → {to}"))
+                    blocked_since = None
+                if ("review" in frm or _is_uat_status(frm)) and "progress" in to:
+                    events.append(("devolution", ts, f"{frm} → {to}"))
+            elif fld == "duedate":
+                last_due_set = ts
+            elif fld == "timeoriginalestimate" and grab is not None:
+                events.append(("estimate", ts, f"{seconds_to_human(int(it.get('from') or 0))} → "
+                                               f"{seconds_to_human(int(it.get('to') or 0))}"))
+
+    now = datetime.now().astimezone()
+    blocked_now = blocked_since is not None
+    if blocked_now:
+        blocked_h += _working_hours_between(blocked_since, now)
+    blocked_days = int(blocked_h / 24 + 0.5)
+    est_days = math.ceil(est_s / _DAY_SECONDS) if est_s else 0
+
+    out = {"key": key, "status": status, "due": due, "grab": grab.date().isoformat() if grab else None,
+           "estimate": seconds_to_human(est_s), "estimate_days": est_days,
+           "blocked_hours": round(blocked_h, 1), "blocked_days": blocked_days, "blocked_now": blocked_now,
+           "devolutions": [e[1].date().isoformat() for e in events if e[0] == "devolution"],
+           "suggested": None, "state": "OK", "reasons": [], "warnings": []}
+
+    if _is_done_status(status):
+        out["state"] = "CLOSED"
+        return out
+    if grab is None:
+        out["state"] = "NOT-GRABBED"
+        out["reasons"].append("never moved to In Progress while assigned to you — no start day to count from")
+        return out
+    if not est_s:
+        out["state"] = "NO-ESTIMATE"
+        out["reasons"].append("no original estimate — set one first: estimate <KEY> --set <duration>")
+        return out
+
+    suggested = add_working_days(grab.date(), est_days + blocked_days)
+    out["suggested"] = suggested.isoformat()
+    out["formula"] = (f"grab {grab.date().isoformat()} + {est_days}d estimate"
+                      + (f" + {blocked_days}d blocked ({blocked_h:.1f}h)" if blocked_days else "")
+                      + " (working days)")
+
+    # A devolution is rework: it must be followed by an estimate increase before the date is recomputed.
+    for kind, when, _ in events:
+        if kind == "devolution" and not any(k == "estimate" and w > when for k, w, _ in events):
+            out["warnings"].append(f"devolution {when.date().isoformat()} was never followed by an estimate "
+                                   "increase — add the rework (`matrix` suggests a window) with `estimate --add`, "
+                                   "then recompute; the suggested date does not include it yet")
+    if blocked_now:
+        out["warnings"].append("the ticket is blocked right now — the date keeps moving until it is unblocked")
+
+    if not due:
+        out["state"] = "MISSING"
+        out["reasons"].append("no due date on the ticket")
+        return out
+    stale = [e for e in events if last_due_set is None or e[1] > last_due_set]
+    if stale:
+        out["state"] = "NEEDS-UPDATE"
+        out["reasons"] += [f"{k} {w.date().isoformat()} ({d}) after the due date was set" for k, w, d in stale]
+    elif due != out["suggested"]:
+        out["state"] = "DIFFERS"
+        out["reasons"].append(f"due {due} differs from the formula ({out['suggested']}) — keep it if it was agreed")
+    if (today or date.today()).isoformat() > due and out["state"] in ("OK", "DIFFERS"):
+        out["warnings"].append(f"due date {due} has passed")
+    return out
+
+
+def _print_deadline(st: dict) -> None:
+    print(f"Due date : {st['due'] or '(none)'}   state: {st['state']}")
+    print(f"Grabbed  : {st['grab'] or 'unknown'} · estimate {st['estimate']} · blocked {st['blocked_hours']}h "
+          f"→ {st['blocked_days']}d · devolutions: {', '.join(st['devolutions']) or 'none'}")
+    if st.get("suggested"):
+        print(f"Suggested: {st['suggested']}  = {st['formula']}")
+    for r in st["reasons"]:
+        print(f"  [WHY ] {r}")
+    for w in st["warnings"]:
+        print(f"  [WARN] {w}")
+
+
+def deadline_command(argv: list[str]) -> None:
+    """
+    `deadline` — show / set the ticket's due date.
+
+        python jira_sync.py deadline API-9999                    # report + suggestion (read-only)
+        python jira_sync.py deadline API-9999 --set 2026-09-30 [--dry-run]
+        python jira_sync.py deadline API-9999 --apply [--dry-run]  # write the suggested date
+
+    Writes only with the user's explicit yes, dry-run first (Annex D §D.2).
+    """
+    import argparse
+    parser = argparse.ArgumentParser(prog="jira_sync.py deadline")
+    parser.add_argument("issue_key")
+    grp = parser.add_mutually_exclusive_group()
+    grp.add_argument("--set", metavar="YYYY-MM-DD", help="write this due date")
+    grp.add_argument("--apply", action="store_true", help="write the suggested due date")
+    parser.add_argument("--json", action="store_true")
+    parser.add_argument("--dry-run", action="store_true")
+    args = parser.parse_args(argv)
+    key = args.issue_key.upper()
+
+    st = deadline_state(key)
+    if args.json:
+        print(json.dumps(st, ensure_ascii=False, indent=2))
+    else:
+        print(f"Ticket   : {key}  [{st['status']}]")
+        _print_deadline(st)
+    if not (args.set or args.apply):
+        return
+    target = args.set or st.get("suggested")
+    if not target:
+        print(f"⛔ no suggested date ({st['state']}) — pass --set YYYY-MM-DD")
+        sys.exit(1)
+    try:
+        datetime.strptime(target, "%Y-%m-%d")
+    except ValueError:
+        print(f"⛔ '{target}' is not a YYYY-MM-DD date")
+        sys.exit(2)
+    print(f"\n  Due date : {st['due'] or '(none)'} → {target}" + ("  (dry-run)" if args.dry_run else ""))
+    if not args.dry_run:
+        _put(f"/rest/api/3/issue/{key}", body={"fields": {"duedate": target}})
+        print("  ✔ updated")
+
+
+def estimate_command(argv: list[str]) -> None:
+    """
+    `estimate` — show / change the original + remaining estimate.
+
+        python jira_sync.py estimate API-9999                          # show
+        python jira_sync.py estimate API-9999 --add 6h [--dry-run]     # rework: original += 6h, remaining += 6h
+        python jira_sync.py estimate API-9999 --set 3d [--remaining 1d] [--dry-run]
+
+    Writes only with the user's explicit yes, dry-run first (Annex D §D.2). The due date does not
+    move by itself: run `deadline` afterwards.
+    """
+    import argparse
+    parser = argparse.ArgumentParser(prog="jira_sync.py estimate")
+    parser.add_argument("issue_key")
+    grp = parser.add_mutually_exclusive_group()
+    grp.add_argument("--add", metavar="DUR", help="add to the original (and remaining) estimate, e.g. 6h, 1d 4h")
+    grp.add_argument("--set", metavar="DUR", help="set the original estimate")
+    parser.add_argument("--remaining", metavar="DUR", help="set the remaining estimate explicitly")
+    parser.add_argument("--dry-run", action="store_true")
+    args = parser.parse_args(argv)
+    key = args.issue_key.upper()
+
+    tt = (_get(f"/rest/api/3/issue/{key}", params={"fields": "timetracking"}).get("fields") or {}).get("timetracking") or {}
+    orig = int(tt.get("originalEstimateSeconds") or 0)
+    rem = int(tt.get("remainingEstimateSeconds") or 0)
+    print(f"Ticket   : {key}")
+    print(f"Estimate : original {format_time_spent(orig)} · remaining {format_time_spent(rem)} · "
+          f"spent {format_time_spent(int(tt.get('timeSpentSeconds') or 0))}")
+    if not (args.add or args.set or args.remaining):
+        return
+    try:
+        new_orig = orig + parse_time_spent(args.add) if args.add else parse_time_spent(args.set) if args.set else orig
+        new_rem = (parse_time_spent(args.remaining) if args.remaining
+                   else rem + parse_time_spent(args.add) if args.add
+                   else max(0, rem + new_orig - orig))
+    except ValueError as exc:
+        print(f"⛔ {exc}")
+        sys.exit(2)
+    print(f"  → original {format_time_spent(new_orig)} · remaining {format_time_spent(new_rem)}"
+          + ("  (dry-run)" if args.dry_run else ""))
+    if not args.dry_run:
+        _put(f"/rest/api/3/issue/{key}", body={"fields": {"timetracking": {
+            "originalEstimate": format_time_spent(new_orig), "remainingEstimate": format_time_spent(new_rem)}}})
+        print(f"  ✔ updated — now check the due date: python jira_sync.py deadline {key}")
+
+
+def watch_command(argv: list[str]) -> None:
+    """
+    `watch` — the background check behind .claude/hooks/ticket-watch.sh. For each key: matrix drift
+    vs the accepted baseline + deadline state, written as ready-to-print lines to
+    work/<KEY>/ticket-snapshots/watch.txt (empty file = nothing to report). Read-only on Jira.
+
+        python jira_sync.py watch API-1 API-2 … [--work-dir DIR]
+    """
+    import argparse
+    parser = argparse.ArgumentParser(prog="jira_sync.py watch")
+    parser.add_argument("keys", nargs="+")
+    parser.add_argument("--work-dir")
+    args = parser.parse_args(argv)
+    work = _coder_work_dir(args.work_dir)
+    if not work:
+        print("⛔ no work/ dir found — pass --work-dir")
+        sys.exit(1)
+    me_id = _my_account_id()
+    for key in (k.upper() for k in args.keys):
+        snap = _snapshots_dir(work, key)
+        lines: list[str] = []
+        try:
+            base = _load_baseline(snap)
+            cur = fetch_matrix_state(key)
+            if not _is_done_status(cur["status"]):
+                findings = diff_matrix(base, cur)
+                if findings:
+                    kinds = [f for f in findings if f["kind"] != "NEW-COMMENT"]
+                    rows = "; ".join(f"row {f['row']} {f['kind']}" + (f" [{', '.join(f['cols'])}]" if f["cols"] else "")
+                                     for f in kinds[:6]) + (" …" if len(kinds) > 6 else "")
+                    n_comments = len(findings) - len(kinds)
+                    low, high, _ = rework_window(findings)
+                    reimpl = any(f["kind"] in ("ADDED", "SPEC-CHANGED") for f in findings)
+                    stale = any(f["kind"] in ("RESULT-STALE", "META-CHANGED", "REMOVED") for f in findings)
+                    todo = []
+                    if reimpl:
+                        todo.append("spec changed → re-implement likely (Phase 4/5)")
+                    if stale:
+                        todo.append("update the subtask results to the new cases")
+                    if any(f["kind"] == "OUT-OF-SYNC" for f in findings):
+                        todo.append("description ≠ subtask → align the subtask")
+                    if n_comments:
+                        todo.append(f"{n_comments} new comment(s) to read")
+                    since = f"since baseline {base['fetched_at'][:16]}" if base else "(no baseline yet — run matrix --init)"
+                    lines.append(f"- {key} · matrix ⚠️ {since}: {rows or 'comments only'} → {'; '.join(todo)}"
+                                 + (f" · rework window {_window_str(low, high)}" if high else "")
+                                 + f" — detail: jira_sync.py matrix {key}")
+                elif base is None:
+                    lines.append(f"- {key} · matrix: no baseline yet — run `jira_sync.py matrix {key} --init` "
+                                 "so later spec changes can be detected")
+                st = deadline_state(key, me_id=me_id)
+                if st["state"] not in ("OK", "CLOSED") or st["warnings"]:
+                    why = "; ".join(st["reasons"] + st["warnings"])
+                    sug = f" · suggested {st['suggested']} ({st['formula']})" if st.get("suggested") else ""
+                    lines.append(f"- {key} · deadline ⏰ {st['state']} (due {st['due'] or 'none'}): {why}{sug}"
+                                 f" — jira_sync.py deadline {key}")
+        except Exception as exc:  # one ticket never breaks the others; the hook shows the error
+            lines.append(f"- {key} · ticket watch failed: {exc}")
+        if snap:
+            snap.mkdir(parents=True, exist_ok=True)
+            (snap / WATCH_CACHE).write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8", newline="\n")
+        print("\n".join(lines) if lines else f"- {key}: nothing to report")
+
+
 if __name__ == "__main__":
-    _KNOWN = {"timesheet", "ticket", "deliver", "doctor", "ready", "time"}
+    _KNOWN = {"timesheet", "ticket", "deliver", "doctor", "ready", "time",
+              "matrix", "deadline", "estimate", "watch"}
     if len(sys.argv) > 1 and sys.argv[1] in _KNOWN:
         _cmd = sys.argv[1]
         if _cmd == "timesheet":
@@ -2531,6 +3206,14 @@ if __name__ == "__main__":
                 deliver_ticket(sys.argv[2:])
             elif _cmd == "time":
                 time_command(sys.argv[2:])
+            elif _cmd == "matrix":
+                matrix_command(sys.argv[2:])
+            elif _cmd == "deadline":
+                deadline_command(sys.argv[2:])
+            elif _cmd == "estimate":
+                estimate_command(sys.argv[2:])
+            elif _cmd == "watch":
+                watch_command(sys.argv[2:])
             else:
                 check_ready(sys.argv[2:])
         else:

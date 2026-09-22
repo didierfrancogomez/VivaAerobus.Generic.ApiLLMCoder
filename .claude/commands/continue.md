@@ -25,7 +25,16 @@ Gathering must leave the machine exactly as found.
    execution results, attachments), and every comment — comments retire/replace test cases.
    **Snapshot discipline**: copy the dump to `work/$ARGUMENTS/ticket-snapshots/<YYYY-MM-DD-HHmm>.txt`
    (this folder is the one write allowed in Stage A — it is pipeline state, not target state).
-   If an earlier snapshot exists, `diff` them — that diff IS the spec-change detector.
+   **Spec-change detector**: `jira_sync.py matrix $ARGUMENTS` — compares both matrices
+   (description + evidence subtask) cell by cell against the accepted baseline and classifies
+   every row: `ADDED`/`SPEC-CHANGED` (re-implement likely), `META-CHANGED`/`RESULT-STALE`
+   (re-run + update the subtask result), `REMOVED`, `OUT-OF-SYNC` (description ≠ subtask),
+   `NEW-COMMENT` — plus a suggested rework window. A raw `diff` of two dumps is NOT the
+   detector (worklogs/status/comments drown the matrix); use it only to read what else moved.
+   No baseline yet (adoption) → `matrix --init` now, and compare against `phase-05-plan.md` by
+   hand this once.
+   **Deadline**: `jira_sync.py deadline $ARGUMENTS` — state + suggested date (grab day +
+   estimate + blocked days); every devolution or block since the date was set shows up here.
 4. **Git, remote truth — without touching the tree**: `git fetch origin` in the code repo.
    Locate the branch from the PR (fallback `feature/$ARGUMENTS/*`). Record, all read-only:
    - current checked-out branch and HEAD SHA (the session may be standing on a DIFFERENT ticket);
@@ -61,6 +70,9 @@ Gathering must leave the machine exactly as found.
    - the status summary (7) and classified deltas (8);
    - **open gaps and questions** — even non-blocking ones, so the user decides with everything
      visible;
+   - **time**: the rework window from `matrix` (or your own, justified), the estimate increase it
+     implies (`estimate --add`) and the resulting due date from `deadline` — each a Jira write the
+     user approves separately, dry-run first;
    - numbered steps `P-NN`, each naming the exact files/systems it will touch;
    - the **git preservation plan** (what gets stashed/kept, recovery point SHA);
    - risks and the rollback path for each mutating step.
@@ -105,7 +117,11 @@ Gathering must leave the machine exactly as found.
 Execution order (each step closes by updating `delivery-state.md`; any deviation → back to §10):
 
 11. `tools/new-run.sh $ARGUMENTS` when prior validation exists — old evidence never validates new
-    code. Backfill/refresh phases 0–5 artifacts as classified (the hooks demand them).
+    code. Backfill/refresh phases 0–5 artifacts as classified (the hooks demand them). With the
+    approved time plan: `estimate $ARGUMENTS --add <window> --dry-run` → real, then
+    `deadline $ARGUMENTS --apply` (or `--set <their date>`) the same way; then
+    `matrix $ARGUMENTS --accept` — the plan now absorbs the new matrix, so it becomes the
+    baseline the next change is measured against.
 12. Implement ONLY the planned `P-NN` steps — `guidelines/**` bind; minimal diff; no
     opportunistic refactors; out-of-scope findings become new tickets (Phase 6.4). Close with
     `tools/code-style.sh $ARGUMENTS apply` (Phase 6 §6.5 — `Ezy` style on our lines only).

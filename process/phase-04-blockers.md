@@ -81,7 +81,10 @@ Rules:
 3. **After a verbal conversation, write the summary and the decision in the ticket** and ask for
    explicit confirmation ("do you confirm we settled on A?").
 4. **Label and make the block visible:** *Blocked* status, reason, person responsible for
-   unblocking, date since when it has been blocked.
+   unblocking, date since when it has been blocked. The *Blocked* status is also what moves the
+   due date: when it ends, `jira_sync.py deadline <KEY>` reports `NEEDS-UPDATE` with the
+   block's working days added — propose the new date to the user and set it on their yes
+   (Phase 10 §10.2.0). A block tracked only in chat never reaches the date.
 
 ## 4.4 Assumption log
 

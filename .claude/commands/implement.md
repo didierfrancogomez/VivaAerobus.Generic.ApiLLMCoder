@@ -14,7 +14,9 @@ Hard sequence:
    `delivery-state.md`, fetches the ticket and runs `ready` when jira-sync is configured
    (Phase 0 §0.0). `ready` exit 1 → **STOP**: report the blockers as questions to the requester;
    do not improvise a test plan. Research ticket → the research route (Phase 0 §0.1): written
-   finding, no PR.
+   finding, no PR. The scaffold also stores the **matrix baseline** and reports the **due date**
+   (Phase 0 §0.0.4): if it is missing or off the rule (grab day + estimate + blocked days,
+   working days), show the suggested date and ask; set it only on the user's yes, dry-run first.
 1. **Stage A — phases 0–4** (`process/phase-00` … `phase-04`), each recording its artifact from
    `process/_templates/phase-artifact.md`, updating `delivery-state.md`, and **closing with
    `tools/save-progress.sh $ARGUMENTS "<phase>"`** — then tell the user the folder
@@ -33,7 +35,9 @@ Hard sequence:
    `work/<KEY>/PUSH-APPROVED` (never create it). Then push, PR (explicit title, PRC-103), and
    `jira_sync.py deliver $ARGUMENTS … --dry-run` first — show the plan, deliver only on their yes.
 4. **Rework** (comments/QA return): `tools/new-run.sh $ARGUMENTS` re-closes the gates, then
-   Phase 10 §10.2's loop.
+   Phase 10 §10.2's loop — which starts by re-estimating and re-dating the ticket (§10.2.0).
+   A `TICKET WATCH` block in the prompt context (matrix drift / deadline ⏰) is surfaced to the
+   user at the top of the answer, whatever else was asked.
 5. **Close**: Phase 11 — invoke the ApiLLM `doc-sync`, evidence, ticket closure.
 
 At every human gate (ready, Phase 4 verdict, HUMAN-GATE for risky, PUSH-APPROVED, deliver)
