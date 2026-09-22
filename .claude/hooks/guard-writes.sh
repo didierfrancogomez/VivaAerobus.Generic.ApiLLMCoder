@@ -14,9 +14,16 @@
 # change only by team decision (CLAUDE.md §Conventions, Phase 11.9 retro).
 # Writes there are denied unless the human has created work/_PROCESS-CHANGE-OK.
 #
-# Classification uses python3 realpath (case-insensitive on darwin). Without
-# python3 the fallback classifies by string prefix and FAILS CLOSED for
+# Classification uses python3 realpath (case-insensitive on darwin and win32).
+# Without python3 the fallback classifies by string prefix and FAILS CLOSED for
 # anything that looks like the code repo.
+#
+# Windows (Git Bash): the repo roots come from bash `pwd` as MSYS paths
+# (/c/Viva/...), which a native python resolves to C:\c\Viva\... — nothing ever
+# matched, so every write classified as OUTSIDE and the guard failed OPEN. The
+# roots are converted to native paths (cygpath -w) before python compares them,
+# and the fallback maps C:\... tool paths onto the MSYS form (native_path lives
+# in lib-gate.sh).
 
 set -uo pipefail
 HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -34,12 +41,18 @@ try:
     p = ti.get("file_path") or ti.get("notebook_path") or ""
     if not p:
         print("OUTSIDE"); sys.exit(0)
+    if sys.platform == "win32" and p.startswith("/"):
+        import subprocess   # MSYS path (/c/..., /tmp/...) → native, as the roots are
+        try:
+            p = subprocess.run(["cygpath", "-w", p], capture_output=True, text=True).stdout.strip() or p
+        except Exception:
+            pass
     if not os.path.isabs(p):
         p = os.path.join(os.getcwd(), p)
     p = os.path.realpath(p)
     if os.path.basename(p) in ("HUMAN-GATE-OK", "_PROCESS-CHANGE-OK", "PUSH-APPROVED"):
         print("HUMANGATE"); sys.exit(0)
-    norm = (lambda s: s.lower()) if sys.platform == "darwin" else (lambda s: s)
+    norm = (lambda s: s.lower()) if sys.platform in ("darwin", "win32") else (lambda s: s)
     def under(child, parent):
         rel = os.path.relpath(norm(child), norm(os.path.realpath(parent)))
         return not (rel == ".." or rel.startswith(".." + os.sep))
@@ -52,10 +65,12 @@ try:
         print("PROTECTED"); sys.exit(0)
     print("OUTSIDE")
 except Exception:
-    print("")' "$CODE_REPO" "$CODER_ROOT" 2>/dev/null
+    print("")' "$(native_path "$CODE_REPO")" "$(native_path "$CODER_ROOT")" 2>/dev/null
   else
     FILE="$(printf '%s' "$INPUT" | sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
     [ -n "$FILE" ] || { echo "OUTSIDE"; return; }
+    # C:\\Viva\\x (JSON-escaped) or C:/Viva/x → /c/Viva/x, the form bash pwd gives the roots.
+    FILE="$(printf '%s' "$FILE" | tr '\\' '/' | tr -s '/' | sed 's#^\([A-Za-z]\):/#/\1/#')"
     case "$FILE" in *HUMAN-GATE-OK|*_PROCESS-CHANGE-OK|*PUSH-APPROVED) echo "HUMANGATE"; return ;; esac
     LOW_FILE="$(printf '%s' "$FILE" | tr '[:upper:]' '[:lower:]')"
     LOW_CODE="$(printf '%s' "$CODE_REPO" | tr '[:upper:]' '[:lower:]')"

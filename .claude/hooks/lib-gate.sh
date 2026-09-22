@@ -64,6 +64,16 @@ CODE_REPO="${CODER_GATE_CODE_REPO:-$(cd "$CODER_ROOT/.." 2>/dev/null && pwd)/Viv
 # CODER_GATE_LLM_REPO / VIVA_DOCS_REPO override the sibling layout (and the tests).
 LLM_REPO="${CODER_GATE_LLM_REPO:-${VIVA_DOCS_REPO:-$(cd "$CODER_ROOT/.." 2>/dev/null && pwd)/VivaAerobus.Generic.ApiLLM}}"
 
+# Windows (Git Bash): the roots above are MSYS paths (/c/Viva/...). Native programs
+# (git.exe, python) only see them converted when MSYS path conversion is on — with
+# MSYS_NO_PATHCONV=1 `git -C /c/...` fails and every check built on it went silent
+# (branch → fell back to _active; SHA drift → never detected). Hand native tools a
+# native path. No-op where cygpath does not exist.
+native_path() {
+  if command -v cygpath >/dev/null 2>&1; then cygpath -w "$1"; else printf '%s' "$1"; fi
+}
+code_git() { git -C "$(native_path "$CODE_REPO")" "$@"; }
+
 # Does <repo>'s origin/main carry <path>? ls-tree takes the ref and the path as
 # separate arguments on purpose: a "ref:path" argument is rewritten by Git Bash's
 # MSYS path conversion (origin/main:a/b → origin\main;a\b) and silently fails.
@@ -128,7 +138,7 @@ gate_active_key() {
 # detached HEAD, or a branch without a parseable key — e.g. master).
 # Prints "KEY<TAB>source"; source is "branch:<name>" or "_active".
 gate_task_key() {
-  BR="$(git -C "$CODE_REPO" branch --show-current 2>/dev/null || true)"
+  BR="$(code_git branch --show-current 2>/dev/null || true)"
   if [ -n "$BR" ]; then
     K="$(printf '%s' "$BR" | grep -oE '[A-Za-z][A-Za-z0-9]*-[0-9]+' | head -1 | tr '[:lower:]' '[:upper:]')"
     if [ -n "$K" ]; then
@@ -225,7 +235,7 @@ gate_sha_drift() {
   KEY="$1"; DIR="$WORK_DIR/$KEY"
   WANT="$(sed -n 's/^VALIDATED-SHA:[[:space:]]*//p' "$DIR/phase-09-pre-review.md" 2>/dev/null | head -1 | tr -d '[:space:]')"
   [ -n "$WANT" ] || return 0
-  HAVE="$(git -C "$CODE_REPO" rev-parse HEAD 2>/dev/null || true)"
+  HAVE="$(code_git rev-parse HEAD 2>/dev/null || true)"
   [ -n "$HAVE" ] || return 0
   if [ "${#WANT}" -ge 7 ]; then
     case "$HAVE" in "$WANT"*) return 0 ;; esac
@@ -239,7 +249,7 @@ gate_style_drift() {
   KEY="$1"; DIR="$WORK_DIR/$KEY"
   WANT="$(sed -n 's/^STYLE-SHA:[[:space:]]*//p' "$DIR/phase-06-code-style.md" 2>/dev/null | head -1 | tr -d '[:space:]')"
   [ -n "$WANT" ] || return 0
-  HAVE="$(git -C "$CODE_REPO" rev-parse HEAD 2>/dev/null || true)"
+  HAVE="$(code_git rev-parse HEAD 2>/dev/null || true)"
   [ -n "$HAVE" ] || return 0
   if [ "${#WANT}" -ge 7 ]; then
     case "$HAVE" in "$WANT"*) return 0 ;; esac

@@ -155,6 +155,24 @@ check "write to process/ WITH _PROCESS-CHANGE-OK → allow" allow \
   "$(run_writes "$(write_json "$CODER_ROOT/process/phase-00-intake.md")")"
 rm -f "$WORK/_PROCESS-CHANGE-OK"
 
+# --- guard-writes: Windows native paths (Git Bash only) -----------------------
+# Claude Code on Windows sends C:\... paths while the roots come from bash as
+# /c/...; with MSYS path conversion off (MSYS_NO_PATHCONV=1) the guard used to
+# fail OPEN. Skipped where cygpath does not exist (macOS/Linux).
+if command -v cygpath >/dev/null 2>&1; then
+  echo "guard-writes (windows paths):"
+  win_json() { python3 -c 'import json,sys;print(json.dumps({"tool_input":{"file_path":sys.argv[1]}}))' "$(cygpath -w "$1")"; }
+  git -C "$CODE" checkout -q -b feat/WIN-7-paths
+  OUT="$(win_json "$CODE/src/Foo.cs" | MSYS_NO_PATHCONV=1 bash "$HOOKS_DIR/guard-writes.sh" 2>/dev/null)"
+  check "C:\\ path to code repo, no artifacts, MSYS_NO_PATHCONV=1 → deny" deny "$OUT" "WIN-7"
+  LOWER="$(cygpath -w "$CODE/src/Foo.cs" | tr '[:upper:]' '[:lower:]')"
+  OUT="$(python3 -c 'import json,sys;print(json.dumps({"tool_input":{"file_path":sys.argv[1]}}))' "$LOWER" | MSYS_NO_PATHCONV=1 bash "$HOOKS_DIR/guard-writes.sh" 2>/dev/null)"
+  check "lowercase c:\\ path to code repo → deny (case-insensitive)" deny "$OUT" "WIN-7"
+  OUT="$(win_json "$CODER_ROOT/CLAUDE.md" | MSYS_NO_PATHCONV=1 bash "$HOOKS_DIR/guard-writes.sh" 2>/dev/null)"
+  check "C:\\ path to CLAUDE.md, MSYS_NO_PATHCONV=1 → deny" deny "$OUT" "PROTECTED SURFACE"
+  git -C "$CODE" checkout -q master
+fi
+
 # --- guard-bash: mutations, publication, drift, user approval ----------------
 echo "guard-bash:"
 
@@ -207,10 +225,18 @@ check "push fully gated (tests+review+SHA+user approval) → allow" allow \
 git -C "$CODE" -c user.email=t@t -c user.name=t commit -q --allow-empty -m drift
 check "push after a new commit (diff drift) → deny" deny \
   "$(run_bash "$(bash_json "git -C $CODE push origin feat/ABC-1-x")")" "DIFF DRIFT"
+if command -v cygpath >/dev/null 2>&1; then
+  OUT="$(bash_json "git -C $CODE push origin feat/ABC-1-x" | MSYS_NO_PATHCONV=1 bash "$HOOKS_DIR/guard-bash.sh" 2>/dev/null)"
+  check "diff drift still detected with MSYS_NO_PATHCONV=1 → deny" deny "$OUT" "DIFF DRIFT"
+fi
 printf 'REVIEW-CODE: APPROVED\nVALIDATED-SHA: %s\nCOMPLETENESS: VERIFIED\nDEVIATIONS: NONE\n' \
   "$(git -C "$CODE" rev-parse HEAD)" > "$WORK/ABC-1/phase-09-pre-review.md"
 check "push with review re-anchored but style still on the old commit → deny" deny \
   "$(run_bash "$(bash_json "git -C $CODE push origin feat/ABC-1-x")")" "STYLE DRIFT"
+if command -v cygpath >/dev/null 2>&1; then
+  OUT="$(bash_json "git -C $CODE push origin feat/ABC-1-x" | MSYS_NO_PATHCONV=1 bash "$HOOKS_DIR/guard-bash.sh" 2>/dev/null)"
+  check "style drift still detected with MSYS_NO_PATHCONV=1 → deny" deny "$OUT" "STYLE DRIFT"
+fi
 make_publication ABC-1 "$(git -C "$CODE" rev-parse HEAD)"
 check "push after re-anchoring VALIDATED-SHA and STYLE-SHA → allow" allow \
   "$(run_bash "$(bash_json "git -C $CODE push origin feat/ABC-1-x")")"
