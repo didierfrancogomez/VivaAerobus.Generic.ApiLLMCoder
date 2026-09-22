@@ -39,9 +39,14 @@ fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 LLM="${VIVA_DOCS_REPO:-$ROOT/../VivaAerobus.Generic.ApiLLM}"
+. "$ROOT/.claude/hooks/lib-gate.sh"   # llm_diagnose
 
-if [ ! -d "$LLM/.git" ]; then
-  echo "LLM SELF-UPDATE — ⛔ HARD DEPENDENCY MISSING: no ApiLLM checkout at '$LLM'. The Coder has no knowledge of its own — documents/** and guidelines/** live there (CLAUDE.md rules 2 and 5), so the pipeline CANNOT run. Do NOT attend the user's request: tell them, and have them clone VivaAerobus.Generic.ApiLLM as a sibling folder (or set VIVA_DOCS_REPO)."
+# Only cases (a) absent / (b) not a git checkout here — requiring just ".git" makes
+# llm_diagnose stop there. Missing CONTENT is judged after the fetch, below, when
+# origin/main is current enough to tell "wrong folder" from "user branch".
+DIAG="$(llm_diagnose "$LLM" .git)"
+if [ -n "$DIAG" ]; then
+  echo "LLM SELF-UPDATE — ⛔ HARD DEPENDENCY MISSING: $DIAG. The Coder has no knowledge of its own — documents/** and guidelines/** live there (CLAUDE.md rules 2 and 5), so the pipeline CANNOT run. Do NOT attend the user's request: tell them that, with the remedy."
   exit 0
 fi
 LLM="$(cd "$LLM" && pwd)"
@@ -69,7 +74,16 @@ if [ "$?" != "0" ]; then
 fi
 
 if [ "$BR" != "main" ]; then
-  echo "LLM SELF-UPDATE — ⚠️ the ApiLLM checkout is on '${BR:-detached HEAD}', not main: it is the user's tree and was NOT touched. Do not read documents/** or guidelines/** from the working tree — read the published state instead (git -C '$LLM' show origin/main:<path>) and say so in the phase artifact."
+  # A user branch cut before a hook landed on main lacks it; say which, so the
+  # wrappers' fallback / refusal downstream is not mistaken for a missing repo.
+  LACK=""
+  for P in documents/_meta/sync-state.md guidelines .claude/hooks/sync-check.sh .claude/hooks/sync-gate.sh; do
+    [ -e "$LLM/$P" ] || LACK="$LACK $P"
+  done
+  BEHIND_MAIN="$(git -C "$LLM" rev-list --count HEAD..origin/main 2>/dev/null || echo '?')"
+  NOTE=""
+  [ -n "$LACK" ] && NOTE=" This branch is $BEHIND_MAIN commit(s) behind origin/main and lacks:$LACK — the checkout EXISTS (do not tell the user to clone it); the remedy, theirs to take, is to switch it to main or merge origin/main."
+  echo "LLM SELF-UPDATE — ⚠️ the ApiLLM checkout is on '${BR:-detached HEAD}', not main: it is the user's tree and was NOT touched.$NOTE Do not read documents/** or guidelines/** from the working tree — read the published state instead (git -C '$LLM' show origin/main:<path>; in Git Bash prefix MSYS_NO_PATHCONV=1, or the ref:path argument is mangled) and say so in the phase artifact."
   exit 0
 fi
 

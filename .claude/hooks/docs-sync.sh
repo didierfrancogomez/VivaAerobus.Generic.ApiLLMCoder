@@ -34,7 +34,11 @@ CHECK="$VIVA_DOCS_REPO/.claude/hooks/sync-check.sh"
 
 if [ ! -f "$CHECK" ]; then
   cat >/dev/null 2>&1 || true   # consume hook stdin
-  echo "DOCS SYNC — ⛔ cannot measure: '$CHECK' not found. The Coder has no knowledge of its own (CLAUDE.md rule 2): documents/** and guidelines/** live in the ApiLLM and the drift is measured by ITS hook. Do NOT treat documents/** as current: check out VivaAerobus.Generic.ApiLLM as a sibling folder (or set VIVA_DOCS_REPO), and until then reason from the code and say so in the phase artifact."
+  # Diagnosed, not assumed (lib-gate.sh :: llm_diagnose): an absent repo and a user
+  # branch that predates sync-check.sh need different remedies.
+  . "$ROOT/.claude/hooks/lib-gate.sh"
+  DIAG="$(llm_diagnose "$VIVA_DOCS_REPO" .claude/hooks/sync-check.sh)"
+  echo "DOCS SYNC — ⛔ cannot measure: ${DIAG:-'$CHECK' not found}. The Coder has no knowledge of its own (CLAUDE.md rule 2): documents/** and guidelines/** live in the ApiLLM and the drift is measured by ITS hook. Do NOT treat documents/** as current: tell the user that remedy, and until then reason from the code and say so in the phase artifact."
   exit 0
 fi
 

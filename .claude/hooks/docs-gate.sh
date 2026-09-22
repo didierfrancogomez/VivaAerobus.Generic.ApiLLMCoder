@@ -28,15 +28,33 @@
 # publishing it is not gated by the API repo's publication signature.
 #
 # One divergence from the wrapped script, by owner's decision (2026-09-22): when the
-# ApiLLM checkout is ABSENT this hook BLOCKS instead of standing down. Upstream that
-# case means "the sync cannot be run from here, so do not lock the session"; here it
-# means the Coder has no knowledge base at all, and a Coder that answers without one
-# is guessing. The refusal is bounded (VIVA_LLM_GATE_MAX, default 3) so the session
-# degrades into a loud warning instead of a deadlock — the remedy (cloning the repo)
-# is the user's, and they have to be told.
+# ApiLLM knowledge base is NOT USABLE this hook BLOCKS instead of standing down.
+# Upstream that case means "the sync cannot be run from here, so do not lock the
+# session"; here it means the Coder has no knowledge base at all, and a Coder that
+# answers without one is guessing. The refusal is bounded (VIVA_LLM_GATE_MAX,
+# default 3) so the session degrades into a loud warning instead of a deadlock — the
+# remedy is the user's, and they have to be told.
+#
+# "Not usable" is DIAGNOSED, not assumed (lib-gate.sh :: llm_diagnose): folder
+# absent, not a git checkout, the checked-out branch lacking a file origin/main has,
+# or the wrong folder — each with its own remedy. Until 2026-09-22 a missing
+# sync-gate.sh read as "there is no ApiLLM, clone it" while the checkout existed and
+# was merely on a user branch cut before sync-gate.sh landed on main.
+#
+# That case — knowledge base present, only sync-gate.sh missing from the checked-out
+# branch — is NOT a refusal: the gate runs origin/main's copy of sync-gate.sh (read
+# with git, never checked out: the user's tree is not touched) against origin/main's
+# documents/_meta/sync-state.md, i.e. the PUBLISHED docs — what llm-update.sh tells
+# a session on a non-main checkout to read. Main's script against the branch's
+# anchor would measure a state nobody reads. Both files are materialised in a shadow
+# folder under this repo's .git/ (whose own .git/ holds the upstream refusal
+# counter), and paths in the verdict are mapped back to the real checkout. A refusal
+# in that mode leads with a note overriding the upstream "pull main" step: the sync
+# must not run on — or merge into — the user's branch. Only when origin/main has no
+# sync-gate.sh either does the hook refuse (bounded, as above).
 #
 # Env: VIVA_DOCS_REPO / VIVA_CODE_REPO / VIVA_CODE_BRANCH (defaults: sibling layout)
-#      VIVA_LLM_GATE_MAX  consecutive refusals when the ApiLLM is missing (default 3)
+#      VIVA_LLM_GATE_MAX  consecutive refusals while the ApiLLM is unusable (default 3)
 
 set -uo pipefail
 
@@ -46,23 +64,30 @@ export VIVA_DOCS_REPO="${VIVA_DOCS_REPO:-$PARENT/VivaAerobus.Generic.ApiLLM}"
 export VIVA_CODE_REPO="${VIVA_CODE_REPO:-$PARENT/VivaAerobus.Generic.Api}"
 export VIVA_CODE_BRANCH="${VIVA_CODE_BRANCH:-master}"
 
-GATE="$VIVA_DOCS_REPO/.claude/hooks/sync-gate.sh"
+. "$ROOT/.claude/hooks/lib-gate.sh"   # llm_diagnose, llm_main_has
 
-# Emits a Stop-hook refusal (the reason is handed back to the model).
-block_json() {
+GATE="$VIVA_DOCS_REPO/.claude/hooks/sync-gate.sh"
+COUNTER="$ROOT/.git/viva-llm-missing-count"
+
+json_esc() {
   s=$1
   s=${s//\\/\\\\}
   s=${s//\"/\\\"}
   s=${s//$'\r'/}
   s=${s//$'\t'/\\t}
   s=${s//$'\n'/\\n}
-  printf '{"decision":"block","reason":"%s"}\n' "$s"
+  printf '%s' "$s"
+}
+
+# Emits a Stop-hook refusal (the reason is handed back to the model).
+block_json() {
+  printf '{"decision":"block","reason":"%s"}\n' "$(json_esc "$1")"
   exit 0
 }
 
-if [ ! -f "$GATE" ]; then
+# Bounded refusal while the ApiLLM is unusable: refuse_unusable <diagnosis> <headline>
+refuse_unusable() {
   cat >/dev/null 2>&1 || true   # consume hook stdin
-  COUNTER="$ROOT/.git/viva-llm-missing-count"
   MAX="${VIVA_LLM_GATE_MAX:-3}"
   N=0; [ -f "$COUNTER" ] && N="$(cat "$COUNTER" 2>/dev/null || echo 0)"
   case "$N" in ''|*[!0-9]*) N=0 ;; esac
@@ -70,21 +95,72 @@ if [ ! -f "$GATE" ]; then
 
   if [ "$MAX" -gt 0 ] && [ "$N" -gt "$MAX" ]; then
     rm -f "$COUNTER" 2>/dev/null
-    echo "DOCS SYNC GATE — GAVE UP after $MAX attempts: there is still no ApiLLM at '$VIVA_DOCS_REPO'. THIS ANSWER HAS NO KNOWLEDGE BASE BEHIND IT. Say that to the user, plainly, and ask them to clone VivaAerobus.Generic.ApiLLM as a sibling folder (or set VIVA_DOCS_REPO)." >&2
+    echo "DOCS SYNC GATE — GAVE UP after $MAX attempts. $2: $1. Say that to the user, plainly, with that remedy." >&2
     exit 0
   fi
 
-  block_json "⛔ NO KNOWLEDGE BASE (attempt $N of $MAX). There is no ApiLLM at '$VIVA_DOCS_REPO' (expected its .claude/hooks/sync-gate.sh), so documents/** and guidelines/** — the only evidence this repo may cite and the only bar it may apply (CLAUDE.md rules 2 and 5) — are not reachable. A Coder session without them is guessing, and the evidence rule forbids guessing.
+  block_json "⛔ $2 (attempt $N of $MAX): $1.
 
-You may not end the turn by answering as if the pipeline were operational. Do this instead:
-1. Check whether the checkout is simply elsewhere: if so, set VIVA_DOCS_REPO to it and say so.
-2. Otherwise TELL THE USER, in one clear sentence, that the Coder cannot operate until VivaAerobus.Generic.ApiLLM is cloned as a sibling folder of this repo, and that every code write and every publication is denied meanwhile.
-3. Do not start phases, do not plan, do not review, do not touch the API repo.
+documents/** and guidelines/** are the only evidence this repo may cite and the only bar it may apply (CLAUDE.md rules 2 and 5), and the sync gate that keeps them current is part of that contract. You may not end the turn by answering as if the pipeline were operational. Do this instead:
+1. If the checkout simply lives elsewhere, set VIVA_DOCS_REPO to it and say so.
+2. Otherwise TELL THE USER, in one clear sentence, what is wrong and the remedy above — that remedy exactly, not a generic 'clone the repo' — and that every code write and every publication is denied while the knowledge base is unusable.
+3. Do not start phases, do not plan, do not review, do not touch the API repo, and do not repair the ApiLLM checkout yourself: it is the user's tree.
 
 This refusal is bounded: after $MAX attempts the turn is let through with a warning, so say the above rather than retrying in silence."
+}
+
+DIAG="$(llm_diagnose "$VIVA_DOCS_REPO")"
+[ -n "$DIAG" ] && refuse_unusable "$DIAG" "KNOWLEDGE BASE UNUSABLE"
+
+FALLBACK=0
+if [ ! -f "$GATE" ]; then
+  # Knowledge base present; sync-gate.sh missing from the checked-out branch.
+  llm_main_has "$VIVA_DOCS_REPO" .claude/hooks/sync-gate.sh || \
+    refuse_unusable "$(llm_diagnose "$VIVA_DOCS_REPO" .claude/hooks/sync-gate.sh)" "SYNC GATE UNAVAILABLE (the knowledge base is present, the gate that keeps it current is not)"
+
+  # Case (c): the published gate against the published anchor. Blob ids come from
+  # ls-tree, never from "ref:path" (Git Bash's path conversion mangles it).
+  blob_of() { git -C "$VIVA_DOCS_REPO" ls-tree origin/main "$1" 2>/dev/null | awk '{print $3}'; }
+  SHADOW_BASE="$ROOT/.git"; [ -d "$SHADOW_BASE" ] || SHADOW_BASE="${TMPDIR:-/tmp}"
+  SHADOW="$SHADOW_BASE/viva-llm-published"
+  mkdir -p "$SHADOW/.git" "$SHADOW/.claude/hooks" "$SHADOW/documents/_meta" 2>/dev/null
+  if ! git -C "$VIVA_DOCS_REPO" cat-file blob "$(blob_of .claude/hooks/sync-gate.sh)" \
+         > "$SHADOW/.claude/hooks/sync-gate.sh" 2>/dev/null; then
+    refuse_unusable "origin/main's .claude/hooks/sync-gate.sh could not be read from '$VIVA_DOCS_REPO', and its checked-out branch has none. Remedy — the user's tree, so the user's call: switch it to main (git -C '$VIVA_DOCS_REPO' switch main) or merge origin/main into it" "SYNC GATE UNAVAILABLE"
+  fi
+  SS_BLOB="$(blob_of documents/_meta/sync-state.md)"
+  if [ -n "$SS_BLOB" ]; then
+    git -C "$VIVA_DOCS_REPO" cat-file blob "$SS_BLOB" > "$SHADOW/documents/_meta/sync-state.md" 2>/dev/null
+  else
+    rm -f "$SHADOW/documents/_meta/sync-state.md"   # upstream then stands down, as it would on main
+  fi
+  FALLBACK=1
 fi
 
-OUT="$(bash "$GATE")"
+rm -f "$COUNTER" 2>/dev/null   # usable: a later outage starts again at attempt 1
+
+if [ "$FALLBACK" = "0" ]; then
+  OUT="$(bash "$GATE")"
+else
+  BR="$(git -C "$VIVA_DOCS_REPO" branch --show-current 2>/dev/null)"; BR="${BR:-detached HEAD}"
+  OUT="$(VIVA_DOCS_REPO="$SHADOW" bash "$SHADOW/.claude/hooks/sync-gate.sh" 2>"$SHADOW/last-stderr")"
+  {
+    [ -s "$SHADOW/last-stderr" ] && sed "s#$SHADOW#$VIVA_DOCS_REPO#g" "$SHADOW/last-stderr"
+    echo "DOCS SYNC GATE — ran origin/main's sync-gate.sh against origin/main's sync-state.md: the ApiLLM checkout is on '$BR', which has no .claude/hooks/sync-gate.sh."
+  } >&2
+  OUT="${OUT//"$SHADOW"/"$VIVA_DOCS_REPO"}"
+  # Prepend by splitting on upstream block()'s literal prefix — not ${OUT/pat/rep},
+  # whose replacement bash 5.2 (patsub_replacement) re-parses, eating the \n escapes.
+  PRE='{"decision":"block","reason":"'
+  case "$OUT" in
+    "$PRE"*)
+      NOTE="READ FIRST — the ApiLLM checkout at '$VIVA_DOCS_REPO' is on the user's branch '$BR', which has no .claude/hooks/sync-gate.sh. This verdict comes from origin/main's copy of the gate, measured against origin/main's documents/_meta/sync-state.md (the published docs). The sync must happen on main, NOT on '$BR': do not pull or merge main into it, do not commit to it, do not switch it yourself — that tree is the user's. This OVERRIDES step 1 below and every 'publish without asking' instruction. Tell the user the docs are stale and ask them to switch the checkout to main (git -C '$VIVA_DOCS_REPO' switch main) or merge origin/main into '$BR'; the sync then runs as described.
+
+"
+      OUT="$PRE$(json_esc "$NOTE")${OUT#"$PRE"}"
+      ;;
+  esac
+fi
 
 case "$OUT" in
   *'"decision":"block"'*) ;;
@@ -104,7 +180,9 @@ IN THIS REPO (Coder), concretely:
 - If a ticket is in flight, record the resulting anchor in work/<KEY>/phase-01-contrast.md as "DOCS-ANCHOR: <sha> FRESH" at column 0 (process/phase-01 section 1.0).
 - Break-glass, owner only: VIVA_SYNC_GATE_OFF=1 for one session. Using it means saying so in the answer.""".format(docs=os.environ.get("VIVA_DOCS_REPO", "../VivaAerobus.Generic.ApiLLM"))
 try:
-    d = json.load(sys.stdin)
+    # Bytes, decoded as UTF-8: on Windows sys.stdin uses the locale code page
+    # (cp1252), which turns every em dash in the reason into mojibake.
+    d = json.loads(sys.stdin.buffer.read().decode("utf-8"))
     d["reason"] = (d.get("reason") or "") + EXTRA
     print(json.dumps(d))
 except Exception:

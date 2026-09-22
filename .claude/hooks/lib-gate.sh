@@ -64,19 +64,54 @@ CODE_REPO="${CODER_GATE_CODE_REPO:-$(cd "$CODER_ROOT/.." 2>/dev/null && pwd)/Viv
 # CODER_GATE_LLM_REPO / VIVA_DOCS_REPO override the sibling layout (and the tests).
 LLM_REPO="${CODER_GATE_LLM_REPO:-${VIVA_DOCS_REPO:-$(cd "$CODER_ROOT/.." 2>/dev/null && pwd)/VivaAerobus.Generic.ApiLLM}}"
 
-# Empty output = the ApiLLM is usable. Otherwise, the reason it is not.
-gate_llm_missing() {
-  if [ ! -d "$LLM_REPO" ]; then
-    echo "there is no ApiLLM checkout at '$LLM_REPO'"
-  elif [ ! -f "$LLM_REPO/documents/_meta/sync-state.md" ]; then
-    echo "'$LLM_REPO' exists but is not the ApiLLM (no documents/_meta/sync-state.md)"
-  elif [ ! -d "$LLM_REPO/guidelines" ]; then
-    echo "'$LLM_REPO' has no guidelines/ — the normative bar for phases 5, 6 and 9 is missing"
+# Does <repo>'s origin/main carry <path>? ls-tree takes the ref and the path as
+# separate arguments on purpose: a "ref:path" argument is rewritten by Git Bash's
+# MSYS path conversion (origin/main:a/b → origin\main;a\b) and silently fails.
+llm_main_has() { # llm_main_has <repo> <path>
+  [ -n "$(git -C "$1" ls-tree origin/main "$2" 2>/dev/null)" ]
+}
+
+# Diagnoses an ApiLLM path. Empty output = usable. Otherwise ONE sentence naming
+# what is wrong AND its remedy. The remedies differ, and "clone it" handed to a
+# user whose checkout exists — on a branch that lacks a file — sends them to fix
+# the wrong thing (2026-09-22). Cases, in order:
+#   (a) folder absent             → clone it / set VIVA_DOCS_REPO
+#   (b) not a git checkout        → freshness unverifiable: replace it with a clone
+#   (c) <path> missing on the checked-out branch, present on origin/main
+#                                 → switch to main or merge origin/main (user's tree)
+#   (d) <path> missing everywhere → wrong folder: point VIVA_DOCS_REPO at the ApiLLM
+# Args after <repo>: the paths that must exist (default: the knowledge base).
+# `.git` is tested with -e, not -d: in a linked worktree it is a file.
+llm_diagnose() { # llm_diagnose <repo> [required-path...]
+  R="$1"; shift
+  [ "$#" -gt 0 ] || set -- documents/_meta/sync-state.md guidelines
+  if [ ! -d "$R" ]; then
+    echo "there is no folder at '$R'. Remedy: clone VivaAerobus.Generic.ApiLLM there, as a sibling folder of this repo, or set VIVA_DOCS_REPO to the real checkout"
+    return
   fi
+  if [ ! -e "$R/.git" ]; then
+    echo "'$R' exists but is not a git checkout, so its freshness against origin/main cannot be verified (golden rule 4). Remedy: replace it with a git clone of VivaAerobus.Generic.ApiLLM, or set VIVA_DOCS_REPO to the real checkout"
+    return
+  fi
+  for P in "$@"; do
+    [ -e "$R/$P" ] && continue
+    if llm_main_has "$R" "$P"; then
+      BR="$(git -C "$R" branch --show-current 2>/dev/null)"
+      echo "the ApiLLM checkout at '$R' exists, but its checked-out branch '${BR:-detached HEAD}' has no $P (origin/main does). Remedy — the user's tree, so the user's call: switch it to main (git -C '$R' switch main) or merge origin/main into it. Do NOT clone it again"
+    else
+      echo "'$R' is a git checkout but has no $P, neither on its branch nor on origin/main — it is not the ApiLLM (or origin/main was never fetched). Remedy: set VIVA_DOCS_REPO to the real VivaAerobus.Generic.ApiLLM checkout, or fetch it"
+    fi
+    return
+  done
+}
+
+# Empty output = the ApiLLM is usable. Otherwise, the reason it is not + remedy.
+gate_llm_missing() {
+  llm_diagnose "$LLM_REPO"
 }
 
 gate_llm_deny_message() {
-  printf '⛔ NO KNOWLEDGE BASE: %s. The Coder documents nothing itself (CLAUDE.md rule 2) and invents no standard of its own (rule 5): documents/** and guidelines/** are the only evidence it may cite and the only bar it may apply, so without them it cannot analyse, plan, implement or review — only guess, which the evidence rule forbids. This is not a warning to work around. Tell the user to clone VivaAerobus.Generic.ApiLLM as a sibling folder of this repo (or to set VIVA_DOCS_REPO), and stop.' "$1"
+  printf '⛔ KNOWLEDGE BASE UNUSABLE: %s. The Coder documents nothing itself (CLAUDE.md rule 2) and invents no standard of its own (rule 5): documents/** and guidelines/** are the only evidence it may cite and the only bar it may apply, so without them it cannot analyse, plan, implement or review — only guess, which the evidence rule forbids. This is not a warning to work around. Tell the user exactly that remedy, and stop.' "$1"
 }
 
 gate_active_key() {

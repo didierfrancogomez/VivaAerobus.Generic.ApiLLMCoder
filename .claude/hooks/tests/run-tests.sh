@@ -32,7 +32,12 @@ HEAD_SHA="$(git -C "$CODE" rev-parse HEAD)"
 PASS=0; FAIL=0
 
 # --- helpers -----------------------------------------------------------------
-write_json() { printf '{"tool_input":{"file_path":"%s"}}' "$1"; }
+# Claude Code sends native paths. On Git Bash an MSYS path ("/tmp/...") would reach
+# guard-writes' Windows python unconverted — and not absolute for Python >= 3.13 —
+# while its argv paths ARE converted, so nothing would ever classify as CODE and
+# every deny test would pass the write through. Send what the real host sends.
+native()     { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi; }
+write_json() { printf '{"tool_input":{"file_path":"%s"}}' "$(native "$1")"; }
 bash_json()  { printf '{"tool_input":{"command":"%s"}}' "$1"; }
 
 run_writes() { printf '%s' "$1" | bash "$HOOKS_DIR/guard-writes.sh" 2>/dev/null; }
@@ -249,18 +254,100 @@ fi
 
 # --- the ApiLLM is a hard prerequisite ---------------------------------------
 echo "no ApiLLM:"
+
+# expect <name> <output> <must-contain> [<must-NOT-contain>] — for the non-JSON
+# hooks (docs-gate, llm-update) whose outputs check() does not model.
+expect() {
+  NAME="$1"; OUT="$2"; YES="$3"; NO="${4:-}"
+  if printf '%s' "$OUT" | grep -qF -- "$YES" && { [ -z "$NO" ] || ! printf '%s' "$OUT" | grep -qF -- "$NO"; }; then
+    PASS=$((PASS+1)); echo "  ok   $NAME"
+  else
+    FAIL=$((FAIL+1)); echo "  FAIL $NAME"
+    echo "       expected: '$YES'${NO:+ and not '$NO'}"; echo "       got     : ${OUT:-<empty>}"
+  fi
+}
+
+# (a) absent
 OUT="$(CODER_GATE_LLM_REPO="$TMP/no-such-llm" run_writes "$(write_json "$CODE/src/Foo.cs")")"
-check "code write without the ApiLLM → deny" deny "$OUT" "NO KNOWLEDGE BASE"
+check "(a) code write, no ApiLLM folder → deny, remedy: clone" deny "$OUT" "Remedy: clone"
 OUT="$(CODER_GATE_LLM_REPO="$TMP/no-such-llm" run_bash "$(bash_json "echo x > $CODE/src/Foo.cs")")"
-check "shell mutation without the ApiLLM → deny" deny "$OUT" "NO KNOWLEDGE BASE"
+check "(a) shell mutation, no ApiLLM folder → deny" deny "$OUT" "KNOWLEDGE BASE UNUSABLE"
+# (b) present, not a git checkout
+mkdir -p "$TMP/plain-llm/documents/_meta" "$TMP/plain-llm/guidelines"
+: > "$TMP/plain-llm/documents/_meta/sync-state.md"
+OUT="$(CODER_GATE_LLM_REPO="$TMP/plain-llm" run_writes "$(write_json "$CODE/src/Foo.cs")")"
+check "(b) ApiLLM folder that is not a git checkout → deny" deny "$OUT" "not a git checkout"
+# (d) a git checkout that is not the ApiLLM (no guidelines/ anywhere)
 mkdir -p "$TMP/half-llm/documents/_meta" && : > "$TMP/half-llm/documents/_meta/sync-state.md"
+git -C "$TMP/half-llm" init -q -b main
 OUT="$(CODER_GATE_LLM_REPO="$TMP/half-llm" run_writes "$(write_json "$CODE/src/Foo.cs")")"
-check "ApiLLM without guidelines/ → deny" deny "$OUT" "normative bar"
+check "(d) git checkout without guidelines/ anywhere → deny, not the ApiLLM" deny "$OUT" "has no guidelines, neither on its branch nor on origin/main"
 OUT="$(run_writes "$(write_json "$CODE/src/Foo.cs")")"
 check "real sibling ApiLLM present → allow" allow "$OUT"
 
+# (c) the checkout EXISTS but its branch predates files that origin/main has
+# (2026-09-22: a user branch without sync-gate.sh was reported as "no ApiLLM, clone
+# it"). Fixture: upstream commit C1 = knowledge base only (anchor "branch-anchor");
+# C2 on main adds a stub sync-gate.sh and moves the anchor to "main-anchor". The
+# clone is left on a branch cut at C1.
+echo "ApiLLM on a branch that predates main (case c):"
+UP="$TMP/llm-upstream"; LC="$TMP/llm-clone"
+gitc() { git -c user.email=t@t -c user.name=t "$@"; }
+mkdir -p "$UP/documents/_meta" "$UP/guidelines" "$UP/.claude/hooks"
+git -C "$UP" init -q -b main
+echo "last_documented_commit: branch-anchor" > "$UP/documents/_meta/sync-state.md"
+echo "rule" > "$UP/guidelines/g.md"
+gitc -C "$UP" add -A && gitc -C "$UP" commit -q -m c1
+C1="$(git -C "$UP" rev-parse HEAD)"
+echo "last_documented_commit: main-anchor" > "$UP/documents/_meta/sync-state.md"
+cat > "$UP/.claude/hooks/sync-gate.sh" <<'STUB'
+#!/usr/bin/env bash
+# Stub of the ApiLLM gate: reports which anchor and docs path it was run against.
+cat >/dev/null 2>&1
+A="$(sed -n 's/^last_documented_commit: *//p' "$VIVA_DOCS_REPO/documents/_meta/sync-state.md")"
+if [ "${STUB_PASS:-0}" = "1" ]; then echo "stub pass at $VIVA_DOCS_REPO" >&2; exit 0; fi
+printf '{"decision":"block","reason":"STUB anchor=%s docs=%s\\n1. git pull origin main"}\n' "$A" "$VIVA_DOCS_REPO"
+STUB
+gitc -C "$UP" add -A && gitc -C "$UP" commit -q -m c2
+git clone -q "$UP" "$LC"
+git -C "$LC" switch -q -c feat/old "$C1"
+SHADOW_DIR="$CODER_ROOT/.git/viva-llm-published"
+rm -rf "$SHADOW_DIR"
+
+OUT="$(CODER_GATE_LLM_REPO="$LC" run_writes "$(write_json "$CODE/src/Foo.cs")")"
+check "(c) guard: knowledge base present on the branch → allow" allow "$OUT"
+
+OUT="$(VIVA_DOCS_REPO="$LC" VIVA_LLM_GATE_MAX=1 bash "$HOOKS_DIR/docs-gate.sh" </dev/null 2>/dev/null)"
+expect "(c) docs-gate: runs origin/main's gate, never 'KNOWLEDGE BASE UNUSABLE'" "$OUT" "STUB anchor=" "UNUSABLE"
+expect "(c) docs-gate: measures origin/main's anchor, not the branch's" "$OUT" "anchor=main-anchor"
+expect "(c) docs-gate: verdict paths point at the real checkout, not the shadow" "$OUT" "docs=$LC" "viva-llm-published"
+expect "(c) docs-gate: leads with 'switch to main or merge', overriding 'pull'" "$OUT" "READ FIRST"
+expect "(c) docs-gate: tells the user the branch, not 'clone'" "$OUT" "branch 'feat/old'" "Remedy: clone"
+OUT="$(STUB_PASS=1 VIVA_DOCS_REPO="$LC" bash "$HOOKS_DIR/docs-gate.sh" </dev/null 2>&1)"
+expect "(c) docs-gate: a passing published gate lets the turn end, and says so" "$OUT" "ran origin/main's sync-gate.sh" '"decision":"block"'
+expect "(c) docs-gate: stderr paths mapped back to the real checkout" "$OUT" "stub pass at $LC"
+
+OUT="$(VIVA_DOCS_REPO="$LC" bash "$HOOKS_DIR/llm-update.sh" </dev/null 2>/dev/null)"
+expect "(c) llm-update: names what the branch lacks, not a missing repo" "$OUT" "sync-gate.sh — the checkout EXISTS" "HARD DEPENDENCY"
+
+# (c) no fallback possible: origin/main has no sync-gate.sh either → bounded refusal
+# that still does not claim the repo is missing.
+git -C "$LC" update-ref refs/remotes/origin/main "$C1"
+OUT="$(VIVA_DOCS_REPO="$LC" VIVA_LLM_GATE_MAX=1 bash "$HOOKS_DIR/docs-gate.sh" </dev/null 2>/dev/null)"
+expect "(c) docs-gate: origin/main lacks the gate too → refuses, gate unavailable" "$OUT" "SYNC GATE UNAVAILABLE" "no folder at"
+rm -f "$CODER_ROOT/.git/viva-llm-missing-count"
+git -C "$LC" fetch -q origin
+
+# (c) the knowledge base itself missing on the branch, present on origin/main
+gitc -C "$LC" rm -rq guidelines && gitc -C "$LC" commit -q -m "drop guidelines"
+OUT="$(CODER_GATE_LLM_REPO="$LC" run_writes "$(write_json "$CODE/src/Foo.cs")")"
+check "(c) guard: branch lacks guidelines/ that main has → deny, switch or merge" deny "$OUT" "switch it to main"
+check "(c) guard: … and says NOT to clone again" deny "$OUT" "Do NOT clone it again"
+rm -rf "$SHADOW_DIR"
+
+echo "docs-gate bounds:"
 OUT="$(VIVA_DOCS_REPO="$TMP/no-such-llm" VIVA_LLM_GATE_MAX=1 bash "$HOOKS_DIR/docs-gate.sh" </dev/null 2>/dev/null)"
-if printf '%s' "$OUT" | grep -q '"decision":"block"' && printf '%s' "$OUT" | grep -q "NO KNOWLEDGE BASE"; then
+if printf '%s' "$OUT" | grep -q '"decision":"block"' && printf '%s' "$OUT" | grep -q "KNOWLEDGE BASE UNUSABLE"; then
   PASS=$((PASS+1)); echo "  ok   docs-gate: no ApiLLM → blocks the turn"
 else
   FAIL=$((FAIL+1)); echo "  FAIL docs-gate missing-ApiLLM block"; echo "$OUT"
@@ -281,6 +368,8 @@ if printf '%s' "$OUT" | grep -q "HARD DEPENDENCY MISSING"; then
 else
   FAIL=$((FAIL+1)); echo "  FAIL llm-update missing-repo note"; echo "$OUT"
 fi
+OUT="$(VIVA_DOCS_REPO="$TMP/plain-llm" bash "$HOOKS_DIR/llm-update.sh" </dev/null 2>/dev/null)"
+expect "llm-update: folder without .git → 'not a git checkout', not 'no checkout'" "$OUT" "not a git checkout" "no folder at"
 OUT="$(VIVA_LLM_UPDATE_OFF=1 bash "$HOOKS_DIR/llm-update.sh" </dev/null 2>/dev/null)"
 if printf '%s' "$OUT" | grep -q "SKIPPED by VIVA_LLM_UPDATE_OFF"; then
   PASS=$((PASS+1)); echo "  ok   llm-update: break-glass announces itself"
