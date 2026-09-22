@@ -59,7 +59,7 @@ check() { # check <name> <expect: allow|deny> <output> [required-substring]
 make_analysis() { # make_analysis <KEY> — full phase 0-5 artifacts, verdict ✅
   D="$WORK/$1"; mkdir -p "$D"
   echo intake    > "$D/phase-00-intake.md"
-  echo contrast  > "$D/phase-01-contrast.md"
+  printf 'contrast\nDOCS-ANCHOR: b1a4a127 FRESH\n' > "$D/phase-01-contrast.md"
   echo matrix    > "$D/phase-02-impact-matrix.md"
   echo feasible  > "$D/phase-03-feasibility.md"
   printf 'analysis done\nVERDICT: ✅\n' > "$D/phase-04-verdict.md"
@@ -90,6 +90,18 @@ check "write to code repo, artifacts missing → deny" deny \
 
 make_analysis ABC-1
 check "write to code repo, phases 0-5 + ✅ → allow" allow \
+  "$(run_writes "$(write_json "$CODE/src/Foo.cs")")"
+
+echo contrast > "$WORK/ABC-1/phase-01-contrast.md"
+check "phase-01 without DOCS-ANCHOR → deny" deny \
+  "$(run_writes "$(write_json "$CODE/src/Foo.cs")")" "DOCS-ANCHOR"
+
+printf '  DOCS-ANCHOR: b1a4a127 FRESH\n' > "$WORK/ABC-1/phase-01-contrast.md"
+check "indented DOCS-ANCHOR → deny (anchored match)" deny \
+  "$(run_writes "$(write_json "$CODE/src/Foo.cs")")" "DOCS-ANCHOR"
+
+printf 'DOCS-ANCHOR: b1a4a127 STALE 2 commits — reasoned from code\n' > "$WORK/ABC-1/phase-01-contrast.md"
+check "DOCS-ANCHOR STALE (declared) → allow" allow \
   "$(run_writes "$(write_json "$CODE/src/Foo.cs")")"
 
 printf 'VERDICT: ⚠️\nquestions...\n' > "$WORK/ABC-1/phase-04-verdict.md"
@@ -207,6 +219,33 @@ if printf '%s' "$STATE" | grep -q "PIPELINE GATE" && printf '%s' "$STATE" | grep
   PASS=$((PASS+1)); echo "  ok   state report runs and lists tasks"
 else
   FAIL=$((FAIL+1)); echo "  FAIL state report"; echo "$STATE"
+fi
+
+# --- llm-update / docs-sync: smoke (never block, always explain) --------------
+echo "llm/docs hooks:"
+OUT="$(VIVA_DOCS_REPO="$TMP/no-such-llm" bash "$HOOKS_DIR/llm-update.sh" </dev/null 2>/dev/null)"
+if printf '%s' "$OUT" | grep -q "HARD DEPENDENCY MISSING"; then
+  PASS=$((PASS+1)); echo "  ok   llm-update: missing ApiLLM → ⛔ note, exit 0"
+else
+  FAIL=$((FAIL+1)); echo "  FAIL llm-update missing-repo note"; echo "$OUT"
+fi
+OUT="$(VIVA_LLM_UPDATE_OFF=1 bash "$HOOKS_DIR/llm-update.sh" </dev/null 2>/dev/null)"
+if printf '%s' "$OUT" | grep -q "SKIPPED by VIVA_LLM_UPDATE_OFF"; then
+  PASS=$((PASS+1)); echo "  ok   llm-update: break-glass announces itself"
+else
+  FAIL=$((FAIL+1)); echo "  FAIL llm-update break-glass"; echo "$OUT"
+fi
+OUT="$(printf '{}' | VIVA_DOCS_REPO="$TMP/no-such-llm" bash "$HOOKS_DIR/docs-sync.sh" 2>/dev/null)"
+if printf '%s' "$OUT" | grep -q "DOCS SYNC — ⛔ cannot measure"; then
+  PASS=$((PASS+1)); echo "  ok   docs-sync: missing sync-check.sh → ⛔ note, exit 0"
+else
+  FAIL=$((FAIL+1)); echo "  FAIL docs-sync missing-check note"; echo "$OUT"
+fi
+OUT="$(printf '{}' | bash "$HOOKS_DIR/docs-sync.sh" 2>/dev/null)"
+if printf '%s' "$OUT" | grep -q "ENFORCED HERE (Coder)" && ! printf '%s' "$OUT" | grep -q "sync-gate.sh"; then
+  PASS=$((PASS+1)); echo "  ok   docs-sync: the ApiLLM Stop-gate clause is replaced"
+else
+  FAIL=$((FAIL+1)); echo "  FAIL docs-sync enforcement rewrite"; echo "$OUT"
 fi
 
 echo

@@ -88,6 +88,24 @@ not a supported entry point (the ApiLLM is entered by the pipeline itself for sy
 the code repo is written *from here*, gated). `.claude/settings.json` pre-authorizes the two
 sibling working directories so the pipeline crosses repos without permission friction.
 
+## D.5b Subagents — they live in the ApiLLM, and that is a dependency, not a detail
+
+The three committed subagent definitions (`doc-sync`, `evidence-auditor`, `requirement-analyst`)
+live in `../VivaAerobus.Generic.ApiLLM/.claude/agents/` and are **not duplicated here**: they
+belong to the repo that owns the knowledge and the sync pipeline (rule 2). They are reachable from
+a Coder session because `.claude/settings.json` pre-authorizes the sibling directory — that, and
+nothing else, is the mechanism.
+
+Consequences the agent must not discover the hard way:
+
+- **Check before promising.** Phases 9 and 11 name them (`evidence-auditor` for a high-stakes
+  verification pass, `doc-sync` for the post-merge re-documentation). If the ApiLLM checkout is
+  missing, `hooks/llm-update.sh` says so with ⛔ at the top of the session — then those steps
+  **cannot** run and the phase records it as a `HANDED-OFF:` item, never as done.
+- **Subagents inherit nothing.** Delegating ad hoc instead of using the committed definitions
+  means pasting into the prompt: (a) the evidence rule, (b) the docs-sync status
+  (`DOCS-ANCHOR:` from phase 1), (c) which `process/` file to follow.
+
 ## D.6 What this annex does NOT change
 
 The gates stay exactly as enforced: human-owned steps being pending never justifies skipping a

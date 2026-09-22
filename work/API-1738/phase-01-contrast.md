@@ -1,6 +1,11 @@
 # Phase 01 — Code contrast: API-1738 Display Passengers Changes
 
 ## Docs-sync status (opens the phase, mandatory)
+
+DOCS-ANCHOR: e004bf9d FRESH
+<!-- Marker backfilled 2026-09-22 when phase-01 gained it (process/phase-01 §1.0). It records the
+     anchor this analysis was actually built on, already stated below: ApiLLM origin/main =
+     e004bf9d = code origin/master HEAD at the time. No claim added or changed. -->
 - ApiLLM local checkout: branch `feat/sync-check-hardening-and-testing-scripts`, `documents/_meta/sync-state.md` anchored at **1431f135** → **STALE** vs code `origin/master`. Not touched (it is the user's tree).
 - ApiLLM **`origin/main`** (fetched 2026-09-04): anchor **e004bf9d = code `origin/master` HEAD** → **CURRENT**. Every `documents/**` / `guidelines/**` citation below was read with `git show origin/main:<path>`.
 - Code refs: **current state = `origin/master` e004bf9d8**; **implemented state = `origin/feature/API-1738/display-passengers-changes-v3` abe4bb5d8** (the content the user chose as final, Q1). Paths are relative to `VivaAerobus.Generic.Api/src/app/VivaAerobus.Generic.Api/`.

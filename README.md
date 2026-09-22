@@ -39,8 +39,10 @@
   `deliver` (evidence → matrix `Execution Result` per row via `--results` → comment with the PR
   link → `TestComplete` → *In review* → unassign for QA; `--dry-run` first, always). Output is
   UTF-8 regardless of the console code page.
-- **Enforcement:** [`.claude/`](.claude/) — hooks that fast-forward this repo to `origin/main`
-  before every prompt, inject the gate state, and deny code-repo writes / `git push` /
+- **Enforcement:** [`.claude/`](.claude/) — hooks that fast-forward this repo **and the ApiLLM**
+  to `origin/main` before every prompt (the ApiLLM is a hard dependency: it holds `documents/**`
+  and `guidelines/**`), inject the docs-vs-code drift and the gate state, and deny code-repo
+  writes / `git push` /
   `gh pr create` until the artifact contract is met and the human signatures exist
   (`HUMAN-GATE-OK` for *risky* tasks, `PUSH-APPROVED` for publication — never created by the
   agent).

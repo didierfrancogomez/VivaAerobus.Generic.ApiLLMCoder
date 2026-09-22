@@ -13,7 +13,11 @@
 # not open a gate:
 #   work/_active                        ← key of the task in progress (one line)
 #   work/<KEY>/phase-00-intake.md
-#   work/<KEY>/phase-01-contrast.md
+#   work/<KEY>/phase-01-contrast.md   ← must contain "DOCS-ANCHOR: <sha> FRESH" or
+#                                       "DOCS-ANCHOR: <sha> STALE <n> commits — <how
+#                                       it was handled>": the ApiLLM anchor the whole
+#                                       analysis was built on (the Coder holds no
+#                                       knowledge of its own — CLAUDE.md rule 2)
 #   work/<KEY>/phase-02-impact-matrix.md
 #   work/<KEY>/phase-03-feasibility.md
 #   work/<KEY>/phase-04-verdict.md      ← exactly ONE line "VERDICT: ..." — "VERDICT: ✅" opens the gate
@@ -76,7 +80,14 @@ gate_task_key() {
 gate_missing_analysis() {
   KEY="$1"; DIR="$WORK_DIR/$KEY"
   [ -f "$DIR/phase-00-intake.md" ]        || echo "work/$KEY/phase-00-intake.md (Phase 0)"
-  [ -f "$DIR/phase-01-contrast.md" ]      || echo "work/$KEY/phase-01-contrast.md (Phase 1)"
+  if [ ! -f "$DIR/phase-01-contrast.md" ]; then
+    echo "work/$KEY/phase-01-contrast.md (Phase 1)"
+  elif ! grep -Eq '^DOCS-ANCHOR: [0-9a-fA-F]{7,40} (FRESH|STALE)' "$DIR/phase-01-contrast.md" 2>/dev/null; then
+    # The docs-sync status is measured on every prompt (docs-sync.sh) but seeing it
+    # is not recording it: phase 1 states WHICH anchor the analysis stands on, so a
+    # later reader can tell an evidence-backed claim from one made on stale docs.
+    echo "work/$KEY/phase-01-contrast.md missing the 'DOCS-ANCHOR: <sha> FRESH' (or 'DOCS-ANCHOR: <sha> STALE <n> commits — <how it was handled>') line at column 0 (Phase 1 — the ApiLLM anchor the analysis was built on: grep last_documented_commit ../VivaAerobus.Generic.ApiLLM/documents/_meta/sync-state.md)"
+  fi
   [ -f "$DIR/phase-02-impact-matrix.md" ] || echo "work/$KEY/phase-02-impact-matrix.md (Phase 2)"
   [ -f "$DIR/phase-03-feasibility.md" ]   || echo "work/$KEY/phase-03-feasibility.md (Phase 3)"
   if [ ! -f "$DIR/phase-04-verdict.md" ]; then
@@ -115,7 +126,7 @@ gate_missing_prereview() {
     echo "work/$KEY/phase-09-pre-review.md (Phase 9)"
   else
     grep -q '^REVIEW-CODE: APPROVED' "$DIR/phase-09-pre-review.md" 2>/dev/null || \
-      echo "work/$KEY/phase-09-pre-review.md missing the 'REVIEW-CODE: APPROVED' line (Phase 9 — run the ApiLLM's llm/REVIEW-CODE.md)"
+      echo "work/$KEY/phase-09-pre-review.md missing the 'REVIEW-CODE: APPROVED' line (Phase 9 — run the local validator process/REVIEW-CODE.md)"
     grep -q '^VALIDATED-SHA: ' "$DIR/phase-09-pre-review.md" 2>/dev/null || \
       echo "work/$KEY/phase-09-pre-review.md missing the 'VALIDATED-SHA: <commit>' line (Phase 9 — anchors the approval to the reviewed commit: git -C <code-repo> rev-parse HEAD)"
     grep -q '^COMPLETENESS: VERIFIED' "$DIR/phase-09-pre-review.md" 2>/dev/null || \

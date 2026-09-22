@@ -23,12 +23,17 @@
    §"NON-NEGOTIABLE — Evidence first": never assume, never infer from names, every claim is cited
    against the code (`path/File.cs :: Symbol`), the unknown is written as `unknown`, and every
    ambiguity is a **blocking question**, never a unilateral decision.
-4. **GOLDEN RULE — never work on a stale main.** `main` is the default branch and the only one
-   this repo works on. Before attending ANY request, this repo is brought to `origin/main`'s
-   latest commit — automated by `hooks/self-update.sh` (SessionStart + every prompt,
-   fast-forward only, never destroys local work). If it reports ⛔ (offline, diverged, wrong
-   branch), the request is **not attended** until the state is reconciled — or the user
-   explicitly accepts working from the local copy.
+4. **GOLDEN RULE — never work on a stale main, here or in the LLM.** `main` is the default branch
+   and the only one this repo works on. Before attending ANY request, this repo is brought to
+   `origin/main`'s latest commit — automated by `hooks/self-update.sh` (SessionStart + every
+   prompt, fast-forward only, never destroys local work) — **and so is the ApiLLM checkout**
+   (`hooks/llm-update.sh`), because `documents/**` and `guidelines/**` are this repo's only
+   knowledge: stale there means planning against outdated facts and reviewing against outdated
+   rules. On top of that, `hooks/docs-sync.sh` measures the docs' drift against the code repo on
+   every prompt (a thin wrapper over the ApiLLM's own `sync-check.sh` — one home for the
+   measurement) and Phase 1 must record it (`DOCS-ANCHOR:`). If any of them reports ⛔ (offline,
+   diverged, wrong branch, unreachable remote), the request is **not attended** until the state is
+   reconciled — or the user explicitly accepts working from the local copy.
 5. **GOLDEN RULE — the LLM repo's guidelines govern HOW code is implemented.** The technical
    specification of how code MUST be written lives in
    `../VivaAerobus.Generic.ApiLLM/guidelines/**` (the 90 normative `STY`/`ARC`/`ROB`/`PRC` rules
@@ -169,7 +174,7 @@ approved commit is still HEAD, **and the user has approved publication** (`PUSH-
 |---|---|---|
 | `../_active` (contains the KEY) | Phase 0 | fallback task identity (see resolution rule below) |
 | `phase-00-intake.md` | Phase 0 | — |
-| `phase-01-contrast.md` | Phase 1 | — |
+| `phase-01-contrast.md` with a line `DOCS-ANCHOR: <sha> FRESH` or `DOCS-ANCHOR: <sha> STALE <n> commits — <handling>` at column 0 | Phase 1 | — |
 | `phase-02-impact-matrix.md` | Phase 2 | — |
 | `phase-03-feasibility.md` | Phase 3 | — |
 | `phase-04-verdict.md` with exactly ONE line `VERDICT: ✅` (or `⚠️`/`⛔`) at column 0 | Phase 4 | — |
@@ -204,8 +209,13 @@ approval** (`PUSH-APPROVED`, Phase 10 §10.0).
 ## Conventions of this repo
 
 - `.claude/` = **enforcement** (committed): `settings.json` wires the hooks (+ sibling-repo
-  `additionalDirectories`); `self-update.sh` fast-forwards this repo to `origin/main` before
-  every prompt (rule 4); `pipeline-state.sh` injects the gate state into every prompt;
+  `additionalDirectories`, which is also what makes the ApiLLM's committed subagents —
+  `doc-sync`, `evidence-auditor`, `requirement-analyst` — reachable from a Coder session);
+  `self-update.sh` fast-forwards this repo to `origin/main` before every prompt (rule 4);
+  `llm-update.sh` does the same for the ApiLLM checkout and fails loud if that repo is missing or
+  unverifiable (it is a hard dependency, not a companion; break-glass: `VIVA_LLM_UPDATE_OFF=1`);
+  `docs-sync.sh` injects the docs-vs-code drift measured by the ApiLLM's `sync-check.sh`;
+  `pipeline-state.sh` injects the gate state into every prompt;
   `guard-writes.sh`/`guard-bash.sh` block API-repo writes and publication until the artifact
   contract is met — a deterministic guard, not a sandbox (outer layers: PR review, GitHub
   permissions). Test suite: `.claude/hooks/tests/run-tests.sh` — run it after any hook change.

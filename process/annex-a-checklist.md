@@ -14,7 +14,8 @@
 - [ ] I classified the type of work and the rigor level (trivial/normal/risky)
 
 **Contrast with the code** (Phase 1)
-- [ ] I synced the LLM repo (llm/SYNC.md) and stated the docs status
+- [ ] I synced the LLM repo (its `llm/SYNC.md`) and recorded the anchor: `DOCS-ANCHOR: <sha>
+      FRESH|STALE <n> commits — <handling>` at column 0 in `phase-01-contrast.md` (gate marker)
 - [ ] I located and read the actual code and its tests
 - [ ] I ran it / reproduced the bug
 - [ ] I reviewed the history (why it is the way it is)

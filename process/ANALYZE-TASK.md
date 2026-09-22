@@ -1,6 +1,8 @@
 <!-- MOVED HERE from VivaAerobus.Generic.ApiLLM/llm/ — this file is Coder process methodology.
-     Paths like documents/**, guidelines/**, llm/SYNC.md remain RELATIVE TO THE ApiLLM REPO ROOT
-     (../VivaAerobus.Generic.ApiLLM/). Knowledge and guidelines stay there; only the procedure moved. -->
+     Knowledge (documents/**) and the normative rules (guidelines/**) stay in the ApiLLM; only the
+     procedure moved, so every reference to them is written in full (../VivaAerobus.Generic.ApiLLM/…)
+     and resolves from this repo. `../CLAUDE.md` means THIS repo's orchestrator, whose rule 3 carries
+     the ApiLLM's evidence rule verbatim. -->
 
 # ANALYZE-TASK.md — Requirement Analysis Gate (STEP 2 of every task)
 
@@ -36,7 +38,7 @@
    pipeline exists to prevent.
 1. **Restate the request** in one paragraph, in your own words: what outcome is wanted, for whom.
    If the restatement is impossible without guessing, that alone is a blocking finding.
-2. **Locate it** via `../documents/concepts/_catalog.md` (+ `integrations/_catalog.md`). List the
+2. **Locate it** via `../VivaAerobus.Generic.ApiLLM/documents/concepts/_catalog.md` (+ `integrations/_catalog.md`). List the
    concept(s), integration(s) and shared areas touched. Open only those docs.
 3. **Check it isn't a stub.** Four endpoints exist that return empty output while Swagger promises
    behaviour (`concepts/_catalog.md` § "Known implementation gaps"). If the request assumes one
@@ -48,7 +50,7 @@
 
 | Question | Why it matters here |
 |---|---|
-| **Is this code or configuration?** | 39 Admin Portal config parts govern business rules at runtime (`../documents/_meta/flags-and-rules.md`). Many requests need **no deploy** — and a config change bypasses PR review and tests, which is its own risk. |
+| **Is this code or configuration?** | 39 Admin Portal config parts govern business rules at runtime (`../VivaAerobus.Generic.ApiLLM/documents/_meta/flags-and-rules.md`). Many requests need **no deploy** — and a config change bypasses PR review and tests, which is its own risk. |
 | **Which channels and flows?** | Behaviour varies by **Channel** (web, mobile, kiosk, whatsapp, callcenter, express) × **FlowType** (Booking, Manage, CheckIn, Transfer) × **AgentType** (Customer, Staff) × **IsPointsBooking** × **Location**. A request that doesn't say is **underspecified** — it may work on web and break on kiosk. |
 | **Which API version(s)?** | V1/V2 pairs coexist (`Account`/`Account2`, `Register`/`RegisterV2`, `AccountVivaCash`/`VivaCash2`). Changing one leaves inconsistent behaviour. |
 | **Where does the rule actually live?** | This repo vs **DotRez** vs **Admin Portal config** vs another external service. If it lives outside, the change may **not be implementable here alone** and depends on a vendor's lead time. |
@@ -86,7 +88,7 @@
 
 ## Phase 3 — Impact analysis (what could this break?)
 
-Drive this from `../documents/cross-module/dependency-map.md` and the concept docs.
+Drive this from `../VivaAerobus.Generic.ApiLLM/documents/cross-module/dependency-map.md` and the concept docs.
 
 1. **Reverse-index everything touched.** For each shared model/service/integration, list the
    consuming concepts. Example already mapped: `_Shared/Basket` is consumed by **61 handlers across
@@ -111,7 +113,7 @@ Drive this from `../documents/cross-module/dependency-map.md` and the concept do
 8. **Money, points, currencies.** Idempotency and double-charge guards, exchange rates, MXN/USD,
    points brackets and coverage rules. Maximum-sensitivity zone.
 9. **Security surface.** Does it touch endpoints already flagged in
-   `../documents/operations/security.md`? Does it add PII, or a new unauthenticated route?
+   `../VivaAerobus.Generic.ApiLLM/documents/operations/security.md`? Does it add PII, or a new unauthenticated route?
 
 ---
 
@@ -122,7 +124,7 @@ Drive this from `../documents/cross-module/dependency-map.md` and the concept do
 - **Concurrency.** Optimistic concurrency surfaces as `BOOKING_WAS_MODIFIED`; retries regenerate the
   basket transaction id. Does the change interact with that?
 - **Idempotency.** Is a repeated call safe? (Critical for anything touching payments or check-in.)
-- **Test safety net.** Coverage is uneven (`../documents/operations/testing.md`): strong on payment
+- **Test safety net.** Coverage is uneven (`../VivaAerobus.Generic.ApiLLM/documents/operations/testing.md`): strong on payment
   availability rules, currencies and proposed seats; **absent** on Basket, Booking, Checkin, Irop,
   Train, Transfer, Vehicle, Admin, Internal and all integration clients. **Where there are no tests,
   writing them is part of the scope, not optional.**

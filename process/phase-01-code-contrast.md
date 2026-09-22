@@ -4,7 +4,10 @@
 > **MANDATORY support from the LLM repo — in this order:**
 > 1. **Sync first**: run step 1 of `../VivaAerobus.Generic.ApiLLM/CLAUDE.md`
 >    (`llm/SYNC.md`). If the docs end up/are stale, reason from the code and **say so explicitly**
->    in the output.
+>    in the output. The drift is measured for you on every prompt
+>    (`.claude/hooks/docs-sync.sh`, a thin wrapper over the ApiLLM's own `sync-check.sh`), but
+>    **seeing it is not recording it**: this phase does not close until its artifact carries the
+>    `DOCS-ANCHOR:` line (§1.0).
 > 2. Locate the code via `documents/concepts/_catalog.md` → the concept doc →
 >    `documents/integrations/_catalog.md` if an external service is involved.
 > 3. Apply [`process/ANALYZE-TASK.md`](ANALYZE-TASK.md) (local) phases 0–2 (restatement, channel/flow/version classification,
@@ -14,6 +17,28 @@
 
 **Objective:** close the gap between what the ticket *assumes* exists and what *really* exists.
 This is the phase that prevents the most rework.
+
+## 1.0 Record the anchor the analysis stands on (gate marker)
+
+The Coder holds no knowledge of its own (`../CLAUDE.md` rule 2): every `documents/**` citation in
+this analysis is only as good as the ApiLLM commit it was read at. Open the artifact with **one
+line at column 0**, exactly one of:
+
+```
+DOCS-ANCHOR: <sha> FRESH
+DOCS-ANCHOR: <sha> STALE <n> commits — <how it was handled>
+```
+
+- `<sha>` = `last_documented_commit` in `../VivaAerobus.Generic.ApiLLM/documents/_meta/sync-state.md`
+  (the value actually used — if the local ApiLLM tree is on another branch or behind, state the one
+  you read with `git show origin/main:<path>`).
+- `FRESH` = the anchor equals the code repo's `master` HEAD.
+- `STALE` = it does not. Then the handling is **not** optional: either the sync was run through the
+  ApiLLM's `doc-sync` pipeline (rule 2 — never written from here), or the affected claims were
+  re-derived from the code. Say which, in that same line.
+
+The hooks match it anchored at column 0, like `VERDICT:` and `TESTS: GREEN`; without it the
+analysis gate stays closed and no code can be written.
 
 ## 1.1 Locate the code involved
 
@@ -78,7 +103,8 @@ Compare ticket vs. reality and classify:
 ---
 
 **Artifacts:** `work/<KEY>/phase-01-contrast.md` — a "current state vs. requested" note with the
-discrepancy table, everything cited, opening with the docs' sync status.
+discrepancy table, everything cited, opening with the `DOCS-ANCHOR:` line (§1.0) and the docs' sync
+status.
 
 **Exit criterion:** zero assumptions about the code; everything asserted was verified by reading or
 running it, with a citation.

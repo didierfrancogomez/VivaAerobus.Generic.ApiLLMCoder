@@ -1,6 +1,8 @@
 <!-- MOVED HERE from VivaAerobus.Generic.ApiLLM/llm/ — this file is Coder process methodology.
-     Paths like documents/**, guidelines/**, llm/SYNC.md remain RELATIVE TO THE ApiLLM REPO ROOT
-     (../VivaAerobus.Generic.ApiLLM/). Knowledge and guidelines stay there; only the procedure moved. -->
+     Knowledge (documents/**) and the normative rules (guidelines/**) stay in the ApiLLM; only the
+     procedure moved, so every reference to them is written in full (../VivaAerobus.Generic.ApiLLM/…)
+     and resolves from this repo. `../CLAUDE.md` means THIS repo's orchestrator, whose rule 3 carries
+     the ApiLLM's evidence rule verbatim. -->
 
 ---
 module: change-playbook
@@ -30,16 +32,16 @@ a safe implementation. Runs only after `ANALYZE-TASK.md` returned verdict **✅ 
    step-6/7 update, including the anchor).
 3. **Write the implementation plan**, with citations:
    - files to create/modify, and **where** each piece goes per
-     `../documents/architecture/conventions.md` (controller, handler, models, output builders, validators) and
-     `../documents/architecture/patterns-cqrs.md`;
-   - the **normative rules the code must comply with**: `../guidelines/README.md` → the relevant
+     `../VivaAerobus.Generic.ApiLLM/documents/architecture/conventions.md` (controller, handler, models, output builders, validators) and
+     `../VivaAerobus.Generic.ApiLLM/documents/architecture/patterns-cqrs.md`;
+   - the **normative rules the code must comply with**: `../VivaAerobus.Generic.ApiLLM/guidelines/README.md` → the relevant
      `STY`/`ARC`/`ROB`/`PRC` items. These are the bar the human reviewers apply; cite the rule IDs
      the plan must honor (a plan that violates a 🐛/❗ rule is not ready);
-   - config parts to add/change (`../documents/_meta/flags-and-rules.md`) — remember these ship **without a
+   - config parts to add/change (`../VivaAerobus.Generic.ApiLLM/documents/_meta/flags-and-rules.md`) — remember these ship **without a
      deploy**;
-   - error codes to add (never repurpose an existing one — see `../documents/cross-module/error-codes.md`);
+   - error codes to add (never repurpose an existing one — see `../VivaAerobus.Generic.ApiLLM/documents/cross-module/error-codes.md`);
    - the **kill switch** (flag/config) when the change is risky enough to need one.
-4. **Plan the tests explicitly.** Check `../documents/operations/testing.md`: where coverage exists, extend it;
+4. **Plan the tests explicitly.** Check `../VivaAerobus.Generic.ApiLLM/documents/operations/testing.md`: where coverage exists, extend it;
    where it is absent (Basket, Booking, Checkin, Irop, Train, Transfer, Vehicle, Admin, Internal,
    integration clients) **writing tests is part of this change**, not a follow-up.
 5. **Plan for the failure paths**, not just the happy one: partial failure (no transaction boundary

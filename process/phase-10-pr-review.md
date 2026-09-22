@@ -141,6 +141,11 @@ Day-to-day review conduct:
 7. **Turn out-of-scope comments into tickets** and link them, instead of expanding the PR.
 8. **Mind the timing:** team agreement (e.g., first response within one business day). A PR that
    stays open for a week becomes a merge conflict and loses context.
+9. **Collect the rule-worthy ones.** A review comment asking for something no
+   `STY`/`ARC`/`ROB`/`PRC` rule covers is evidence that the bar moved: record it in the phase
+   artifact (reviewer, `#PR`, what was asked, whether it was accepted). It is NOT written into
+   `guidelines/**` from here — Phase 11 §12 hands the list to the ApiLLM's own procedure, the only
+   path by which a rule may enter (`REVIEW-CODE.md` §Scope).
 
 ## 10.3 Merge
 

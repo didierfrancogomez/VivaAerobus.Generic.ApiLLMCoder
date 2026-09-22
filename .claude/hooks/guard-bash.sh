@@ -90,11 +90,11 @@ fi
 if [ "$PUBLISHES" = "1" ]; then
   PRE="$(gate_missing_prereview "$KEY")"
   if [ -n "$PRE" ]; then
-    gate_deny "⛔ PRE-PUBLICATION GATE (Phases 7+9): cannot publish (push / PR) — missing: $(printf '%s' "$PRE" | tr '\n' ';'). Phase 7: run the FULL suite green and record 'TESTS: GREEN' in work/$KEY/phase-07-testing.md. Phase 9: run the ApiLLM's local validator llm/REVIEW-CODE.md on the diff; only with APPROVED do you record 'REVIEW-CODE: APPROVED' plus 'VALIDATED-SHA: <commit>' in work/$KEY/phase-09-pre-review.md."
+    gate_deny "⛔ PRE-PUBLICATION GATE (Phases 7+9): cannot publish (push / PR) — missing: $(printf '%s' "$PRE" | tr '\n' ';'). Phase 7: run the FULL suite green and record 'TESTS: GREEN' in work/$KEY/phase-07-testing.md. Phase 9: run the local validator process/REVIEW-CODE.md on the diff; only with APPROVED do you record 'REVIEW-CODE: APPROVED' plus 'VALIDATED-SHA: <commit>' in work/$KEY/phase-09-pre-review.md."
   fi
   DRIFT="$(gate_sha_drift "$KEY")"
   if [ -n "$DRIFT" ]; then
-    gate_deny "⛔ DIFF DRIFT (Phase 9): the code changed after the REVIEW-CODE approval ($DRIFT). The approval is void — re-run llm/REVIEW-CODE.md on the current diff, and only with APPROVED update 'VALIDATED-SHA:' in work/$KEY/phase-09-pre-review.md."
+    gate_deny "⛔ DIFF DRIFT (Phase 9): the code changed after the REVIEW-CODE approval ($DRIFT). The approval is void — re-run process/REVIEW-CODE.md on the current diff, and only with APPROVED update 'VALIDATED-SHA:' in work/$KEY/phase-09-pre-review.md."
   fi
   APPROVAL="$(gate_missing_push_approval "$KEY")"
   if [ -n "$APPROVAL" ]; then

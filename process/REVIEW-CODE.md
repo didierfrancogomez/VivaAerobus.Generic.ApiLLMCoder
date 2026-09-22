@@ -1,6 +1,8 @@
 <!-- MOVED HERE from VivaAerobus.Generic.ApiLLM/llm/ — this file is Coder process methodology.
-     Paths like documents/**, guidelines/**, llm/SYNC.md remain RELATIVE TO THE ApiLLM REPO ROOT
-     (../VivaAerobus.Generic.ApiLLM/). Knowledge and guidelines stay there; only the procedure moved. -->
+     Knowledge (documents/**) and the normative rules (guidelines/**) stay in the ApiLLM; only the
+     procedure moved, so every reference to them is written in full (../VivaAerobus.Generic.ApiLLM/…)
+     and resolves from this repo. `../CLAUDE.md` means THIS repo's orchestrator, whose rule 3 carries
+     the ApiLLM's evidence rule verbatim. -->
 
 # REVIEW-CODE.md — Implementation Review Gate (the local validator)
 
@@ -9,7 +11,7 @@
 > requesting human review.
 >
 > **Goal:** verify the implementation against (a) the **purpose of its task** and (b) the
-> **normative team rules** (`../guidelines/**`), and return a structured verdict with findings —
+> **normative team rules** (`../VivaAerobus.Generic.ApiLLM/guidelines/**`), and return a structured verdict with findings —
 > the same bar the human reviewers will apply, applied earlier and at the developer's desk.
 >
 > ⚠️ Bound by the **evidence-first rule** (`../CLAUDE.md §Non-negotiable`): every finding cites the
@@ -32,12 +34,12 @@
 
 0. **State the docs-sync status in the first lines of the output — always** (anchor vs code HEAD),
    same rule as `ANALYZE-TASK.md` Phase 0.
-1. **Load the bar**: `../guidelines/README.md` + the four category files. Note the severity
+1. **Load the bar**: `../VivaAerobus.Generic.ApiLLM/guidelines/README.md` + the four category files. Note the severity
    taxonomy (🐛 bug · ❗ blocking · 🏭 refactor · ✋ style) — findings are classified with it.
 2. **Restate the task** in one paragraph: what outcome the change is supposed to deliver. List its
    acceptance criteria (from the ticket or the step-2 analysis).
 3. **Scope the diff**: files changed, concepts/integrations touched (locate them via
-   `../documents/concepts/_catalog.md`). Open only the docs for what the diff touches.
+   `../VivaAerobus.Generic.ApiLLM/documents/concepts/_catalog.md`). Open only the docs for what the diff touches.
 
 ## Phase 1 — Purpose alignment (does it do what the task asked?)
 
@@ -54,23 +56,23 @@
 - Logic: conditions, boundaries, null handling, impossible states.
 - **Failure paths**: external call fails, empty response, timeout, concurrency. The happy path
   working is the *minimum*, not the review.
-- Error handling: correct `ErrorCode` (never repurposed — `../documents/cross-module/error-codes.md`),
+- Error handling: correct `ErrorCode` (never repurposed — `../VivaAerobus.Generic.ApiLLM/documents/cross-module/error-codes.md`),
   no swallowed exceptions, failures visible in logs.
 
 ## Phase 3 — Blast radius (what else does this touch?)
 
-Drive from `../documents/cross-module/dependency-map.md` (reverse index) and the concept docs:
+Drive from `../VivaAerobus.Generic.ApiLLM/documents/cross-module/dependency-map.md` (reverse index) and the concept docs:
 
 - Shared models/services touched → list their consumers; verify the change is safe for each.
 - **Contract changes** (request/response shapes, error codes): backwards compatible? Who consumes
   them (web, mobile, partners)?
 - Config parts / flags the code now depends on — do they exist in every environment
-  (`../documents/_meta/flags-and-rules.md`)?
+  (`../VivaAerobus.Generic.ApiLLM/documents/_meta/flags-and-rules.md`)?
 - In-flight sessions: are baskets/bookings created before the change still processable after it?
 
 ## Phase 4 — Design & architecture (`ARC`)
 
-- Code in the right place per `../documents/architecture/conventions.md` and `patterns-cqrs.md`
+- Code in the right place per `../VivaAerobus.Generic.ApiLLM/documents/architecture/conventions.md` and `patterns-cqrs.md`
   (thin controller, handler per feature, builders, validators registered).
 - Reuses what exists (shared services, constants, helpers) instead of duplicating it.
 - DI registrations correct; domain model conventions respected.
@@ -80,7 +82,7 @@ Drive from `../documents/cross-module/dependency-map.md` (reverse index) and the
 - Naming, dead code, formatting, language conventions. Real findings, minor severity — style
   comments must never dominate the review.
 
-## Phase 6 — Tests (`PRC` + `../documents/operations/testing.md`)
+## Phase 6 — Tests (`PRC` + `../VivaAerobus.Generic.ApiLLM/documents/operations/testing.md`)
 
 - New behaviour has tests, **including failure paths**.
 - Existing tests still valid — not weakened to pass.
@@ -88,7 +90,7 @@ Drive from `../documents/cross-module/dependency-map.md` (reverse index) and the
 
 ## Phase 7 — Security & data
 
-- Inputs validated; no hardcoded secrets; PII handled per `../documents/operations/security.md`;
+- Inputs validated; no hardcoded secrets; PII handled per `../VivaAerobus.Generic.ApiLLM/documents/operations/security.md`;
   logs don't leak sensitive data.
 
 ## Phase 8 — Process & delivery (`PRC`)
@@ -114,8 +116,8 @@ Always end with an explicit verdict — the same two states the team's PR cycle 
 - **Order by severity**, blocking first. Within severity, by file.
 - **An observation is not a rule.** Concerns without a backing guideline go in their own section;
   they do not affect the verdict. If one seems recurrent, note it as a **candidate rule** — it
-  only enters `../guidelines/**` through that folder's own procedure (PR-review evidence, per
-  `../guidelines/CLAUDE.md`), never from an AI review alone.
+  only enters `../VivaAerobus.Generic.ApiLLM/guidelines/**` through that folder's own procedure (PR-review evidence, per
+  `../VivaAerobus.Generic.ApiLLM/guidelines/CLAUDE.md`), never from an AI review alone.
 - **No opinion without anchor.** If you cannot cite a rule or a documented fact, either verify it
   in code first or leave it out.
 
