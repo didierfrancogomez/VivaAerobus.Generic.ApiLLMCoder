@@ -221,6 +221,32 @@ else
   FAIL=$((FAIL+1)); echo "  FAIL state report"; echo "$STATE"
 fi
 
+# --- the ApiLLM is a hard prerequisite ---------------------------------------
+echo "no ApiLLM:"
+OUT="$(CODER_GATE_LLM_REPO="$TMP/no-such-llm" run_writes "$(write_json "$CODE/src/Foo.cs")")"
+check "code write without the ApiLLM → deny" deny "$OUT" "NO KNOWLEDGE BASE"
+OUT="$(CODER_GATE_LLM_REPO="$TMP/no-such-llm" run_bash "$(bash_json "echo x > $CODE/src/Foo.cs")")"
+check "shell mutation without the ApiLLM → deny" deny "$OUT" "NO KNOWLEDGE BASE"
+mkdir -p "$TMP/half-llm/documents/_meta" && : > "$TMP/half-llm/documents/_meta/sync-state.md"
+OUT="$(CODER_GATE_LLM_REPO="$TMP/half-llm" run_writes "$(write_json "$CODE/src/Foo.cs")")"
+check "ApiLLM without guidelines/ → deny" deny "$OUT" "normative bar"
+OUT="$(run_writes "$(write_json "$CODE/src/Foo.cs")")"
+check "real sibling ApiLLM present → allow" allow "$OUT"
+
+OUT="$(VIVA_DOCS_REPO="$TMP/no-such-llm" VIVA_LLM_GATE_MAX=1 bash "$HOOKS_DIR/docs-gate.sh" </dev/null 2>/dev/null)"
+if printf '%s' "$OUT" | grep -q '"decision":"block"' && printf '%s' "$OUT" | grep -q "NO KNOWLEDGE BASE"; then
+  PASS=$((PASS+1)); echo "  ok   docs-gate: no ApiLLM → blocks the turn"
+else
+  FAIL=$((FAIL+1)); echo "  FAIL docs-gate missing-ApiLLM block"; echo "$OUT"
+fi
+OUT="$(VIVA_DOCS_REPO="$TMP/no-such-llm" VIVA_LLM_GATE_MAX=1 bash "$HOOKS_DIR/docs-gate.sh" </dev/null 2>&1)"
+if printf '%s' "$OUT" | grep -q "GAVE UP" && ! printf '%s' "$OUT" | grep -q '"decision":"block"'; then
+  PASS=$((PASS+1)); echo "  ok   docs-gate: bounded — gives up instead of deadlocking"
+else
+  FAIL=$((FAIL+1)); echo "  FAIL docs-gate give-up"; echo "$OUT"
+fi
+rm -f "$CODER_ROOT/.git/viva-llm-missing-count"
+
 # --- llm-update / docs-sync: smoke (never block, always explain) --------------
 echo "llm/docs hooks:"
 OUT="$(VIVA_DOCS_REPO="$TMP/no-such-llm" bash "$HOOKS_DIR/llm-update.sh" </dev/null 2>/dev/null)"
@@ -242,8 +268,8 @@ else
   FAIL=$((FAIL+1)); echo "  FAIL docs-sync missing-check note"; echo "$OUT"
 fi
 OUT="$(printf '{}' | bash "$HOOKS_DIR/docs-sync.sh" 2>/dev/null)"
-if printf '%s' "$OUT" | grep -q "ENFORCED HERE (Coder)" && ! printf '%s' "$OUT" | grep -q "sync-gate.sh"; then
-  PASS=$((PASS+1)); echo "  ok   docs-sync: the ApiLLM Stop-gate clause is replaced"
+if printf '%s' "$OUT" | grep -q "ENFORCED HERE (Coder)" && ! printf '%s' "$OUT" | grep -q "ENFORCED: the Stop hook"; then
+  PASS=$((PASS+1)); echo "  ok   docs-sync: the upstream enforcement clause is replaced by the Coder's"
 else
   FAIL=$((FAIL+1)); echo "  FAIL docs-sync enforcement rewrite"; echo "$OUT"
 fi

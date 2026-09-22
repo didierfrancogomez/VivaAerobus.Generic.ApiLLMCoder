@@ -40,12 +40,14 @@
   link → `TestComplete` → *In review* → unassign for QA; `--dry-run` first, always). Output is
   UTF-8 regardless of the console code page.
 - **Enforcement:** [`.claude/`](.claude/) — hooks that fast-forward this repo **and the ApiLLM**
-  to `origin/main` before every prompt (the ApiLLM is a hard dependency: it holds `documents/**`
-  and `guidelines/**`), inject the docs-vs-code drift and the gate state, and deny code-repo
+  to `origin/main` before every prompt, inject the docs-vs-code drift and the gate state, **refuse
+  to end a turn while `documents/**` are behind the code** (`Stop` gate), and deny code-repo
   writes / `git push` /
   `gh pr create` until the artifact contract is met and the human signatures exist
   (`HUMAN-GATE-OK` for *risky* tasks, `PUSH-APPROVED` for publication — never created by the
-  agent).
+  agent). The ApiLLM checkout is a **hard prerequisite**: it holds `documents/**` and
+  `guidelines/**`, so without it the pipeline does not run at all — writes and publication are
+  denied and the turn is refused.
 
 It works together with two sibling repos (same parent directory):
 

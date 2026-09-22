@@ -14,11 +14,16 @@
 1. **Analysis before code, always.** Phases 0–4 are completed BEFORE writing a single line. The
    Phase 4 gate decides: open hard blockers → **STOP and ask**; verdict ✅ and zero blockers →
    proceed to implementation (phases 5–11). There is no shortcut.
-2. **This repo does NOT document the system.** Knowledge about the API lives in the **ApiLLM**
-   repo (`../VivaAerobus.Generic.ApiLLM/documents/**`). If work surfaces missing, stale or
-   incorrect documentation, **invoke the ApiLLM pipeline** (its `CLAUDE.md` step 1 / `doc-sync`
-   agent) to process it. System documentation is never written here, nor inline in an analysis as
-   "new knowledge".
+2. **This repo does NOT document the system — and does not run without the one that does.**
+   Knowledge about the API lives in the **ApiLLM** repo
+   (`../VivaAerobus.Generic.ApiLLM/documents/**`). If work surfaces missing, stale or incorrect
+   documentation, **invoke the ApiLLM pipeline** (its `CLAUDE.md` step 1 / `doc-sync` agent) to
+   process it. System documentation is never written here, nor inline in an analysis as "new
+   knowledge". **The ApiLLM checkout is a hard prerequisite, enforced**: with it absent (or
+   without its `guidelines/`), every write to the API repo and every publication is **denied**
+   (`gate_llm_missing`) and the `Stop` gate refuses the turn — a Coder with no evidence to cite
+   and no bar to apply can only guess, which rule 3 forbids. The fix is the user's: clone it as a
+   sibling folder, or set `VIVA_DOCS_REPO`.
 3. **Evidence first** — rule inherited verbatim from `../VivaAerobus.Generic.ApiLLM/CLAUDE.md`
    §"NON-NEGOTIABLE — Evidence first": never assume, never infer from names, every claim is cited
    against the code (`path/File.cs :: Symbol`), the unknown is written as `unknown`, and every
@@ -29,11 +34,16 @@
    prompt, fast-forward only, never destroys local work) — **and so is the ApiLLM checkout**
    (`hooks/llm-update.sh`), because `documents/**` and `guidelines/**` are this repo's only
    knowledge: stale there means planning against outdated facts and reviewing against outdated
-   rules. On top of that, `hooks/docs-sync.sh` measures the docs' drift against the code repo on
-   every prompt (a thin wrapper over the ApiLLM's own `sync-check.sh` — one home for the
-   measurement) and Phase 1 must record it (`DOCS-ANCHOR:`). If any of them reports ⛔ (offline,
-   diverged, wrong branch, unreachable remote), the request is **not attended** until the state is
-   reconciled — or the user explicitly accepts working from the local copy.
+   rules. On top of that the docs' drift against the code repo is **measured on every prompt**
+   (`hooks/docs-sync.sh`) and **enforced when the turn ends**: `hooks/docs-gate.sh` (Stop) refuses
+   to close a turn while `documents/**` are behind `origin/master` — measuring proved not to be
+   enough in the ApiLLM, where an analysis once ran 104 commits stale because the sync looked "out
+   of scope for this ticket". Both are thin wrappers over the ApiLLM's own `sync-check.sh` /
+   `sync-gate.sh`: one home for the measurement, and their fail-open behaviour (no anchor, no code
+   repo, failed fetch ⇒ never block) comes along unchanged. Phase 1 additionally records the anchor
+   used (`DOCS-ANCHOR:`). If any of them reports ⛔ (offline, diverged, wrong branch, unreachable
+   remote), the request is **not attended** until the state is reconciled — or the user explicitly
+   accepts working from the local copy.
 5. **GOLDEN RULE — the LLM repo's guidelines govern HOW code is implemented.** The technical
    specification of how code MUST be written lives in
    `../VivaAerobus.Generic.ApiLLM/guidelines/**` (the 90 normative `STY`/`ARC`/`ROB`/`PRC` rules
@@ -214,11 +224,14 @@ approval** (`PUSH-APPROVED`, Phase 10 §10.0).
   `self-update.sh` fast-forwards this repo to `origin/main` before every prompt (rule 4);
   `llm-update.sh` does the same for the ApiLLM checkout and fails loud if that repo is missing or
   unverifiable (it is a hard dependency, not a companion; break-glass: `VIVA_LLM_UPDATE_OFF=1`);
-  `docs-sync.sh` injects the docs-vs-code drift measured by the ApiLLM's `sync-check.sh`;
-  `pipeline-state.sh` injects the gate state into every prompt;
+  `docs-sync.sh` injects the docs-vs-code drift measured by the ApiLLM's `sync-check.sh`, and
+  `docs-gate.sh` (Stop) blocks the end of the turn while that drift exists — it wraps the ApiLLM's
+  `sync-gate.sh`, so it fails open when the sync is impossible, gives up after
+  `VIVA_SYNC_GATE_MAX` refusals and can be disabled for one session with `VIVA_SYNC_GATE_OFF=1`
+  (saying so in the answer); `pipeline-state.sh` injects the gate state into every prompt;
   `guard-writes.sh`/`guard-bash.sh` block API-repo writes and publication until the artifact
-  contract is met — a deterministic guard, not a sandbox (outer layers: PR review, GitHub
-  permissions). Test suite: `.claude/hooks/tests/run-tests.sh` — run it after any hook change.
+  contract is met **and the ApiLLM checkout is present** (rule 2) — a deterministic guard, not a
+  sandbox (outer layers: PR review, GitHub permissions). Test suite: `.claude/hooks/tests/run-tests.sh` — run it after any hook change.
 - `tools/` = automation: `new-task.sh` (scaffold + intake), `new-run.sh` (immutable runs),
   `jira-sync/` (the Jira bridge — reads free; writes only via Phase 10 §10.1b behind the user's
   approval). `.claude/commands/implement.md` = `/implement <KEY>`, the single entry point.

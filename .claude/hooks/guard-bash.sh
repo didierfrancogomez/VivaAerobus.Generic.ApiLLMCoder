@@ -76,6 +76,11 @@ if printf '%s' "$CMD" | grep -Eiq ">>?[^;&|<]*$CODE_RE" || \
 fi
 [ "$MUTATES" = "1" ] || [ "$PUBLISHES" = "1" ] || exit 0
 
+LLM_MISSING="$(gate_llm_missing)"
+if [ -n "$LLM_MISSING" ]; then
+  gate_deny "$(gate_llm_deny_message "$LLM_MISSING")"
+fi
+
 RES="$(gate_task_key || echo "")"
 if [ -z "$RES" ]; then
   gate_deny "⛔ PIPELINE GATE: this command mutates the API repo and no task can be resolved (no Jira key in the code-repo branch, no work/_active). Complete phases 0-5 first (process/). See CLAUDE.md §Enforcement."

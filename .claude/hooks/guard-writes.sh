@@ -84,6 +84,10 @@ case "$(classify)" in
     [ -f "$WORK_DIR/_PROCESS-CHANGE-OK" ] && exit 0
     gate_deny "⛔ PROTECTED SURFACE: process/, CLAUDE.md and .claude/ define the team's mandatory process — they change only by team decision (CLAUDE.md §Conventions; Phase 11.9 retro). Ask the user to authorize the agreed change by running: touch work/_PROCESS-CHANGE-OK (and to delete that file when the change is done)." ;;
   CODE)
+    LLM_MISSING="$(gate_llm_missing)"
+    if [ -n "$LLM_MISSING" ]; then
+      gate_deny "$(gate_llm_deny_message "$LLM_MISSING")"
+    fi
     RES="$(gate_task_key || echo "")"
     if [ -z "$RES" ]; then
       gate_deny "⛔ PIPELINE GATE: cannot resolve a task for this write — the code-repo branch has no Jira key and work/_active does not exist. Before touching the API repo: create work/<KEY>/, write the key into work/_active (or check out a type/KEY-123-desc branch) and complete phases 0-5 (process/). See CLAUDE.md §Enforcement."

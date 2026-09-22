@@ -35,6 +35,10 @@
 #   work/_PROCESS-CHANGE-OK             ← human-created: unlocks edits to the process
 #                                         surface (process/, CLAUDE.md, .claude/)
 #
+# Hard prerequisite, checked before any of the above: the ApiLLM checkout must be
+# present (gate_llm_missing). Without it every code write and every publication is
+# denied — see gate_llm_deny_message.
+#
 # Must stay bash-3.2 compatible (macOS default bash).
 
 GATE_HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -47,6 +51,28 @@ WORK_DIR="${CODER_GATE_WORK_DIR:-$CODER_ROOT/work}"
 # CODER_GATE_CODE_REPO overrides the default sibling layout (also used by the
 # hook test suite).
 CODE_REPO="${CODER_GATE_CODE_REPO:-$(cd "$CODER_ROOT/.." 2>/dev/null && pwd)/VivaAerobus.Generic.Api}"
+
+# The ApiLLM checkout: this repo's ONLY knowledge (documents/**) and its ONLY
+# normative bar (guidelines/**). Without it the Coder cannot analyse, plan or review
+# — it can only guess, which is the one thing the evidence rule forbids. So its
+# absence is not a warning, it is a stop (owner's decision, 2026-09-22).
+# CODER_GATE_LLM_REPO / VIVA_DOCS_REPO override the sibling layout (and the tests).
+LLM_REPO="${CODER_GATE_LLM_REPO:-${VIVA_DOCS_REPO:-$(cd "$CODER_ROOT/.." 2>/dev/null && pwd)/VivaAerobus.Generic.ApiLLM}}"
+
+# Empty output = the ApiLLM is usable. Otherwise, the reason it is not.
+gate_llm_missing() {
+  if [ ! -d "$LLM_REPO" ]; then
+    echo "there is no ApiLLM checkout at '$LLM_REPO'"
+  elif [ ! -f "$LLM_REPO/documents/_meta/sync-state.md" ]; then
+    echo "'$LLM_REPO' exists but is not the ApiLLM (no documents/_meta/sync-state.md)"
+  elif [ ! -d "$LLM_REPO/guidelines" ]; then
+    echo "'$LLM_REPO' has no guidelines/ — the normative bar for phases 5, 6 and 9 is missing"
+  fi
+}
+
+gate_llm_deny_message() {
+  printf '⛔ NO KNOWLEDGE BASE: %s. The Coder documents nothing itself (CLAUDE.md rule 2) and invents no standard of its own (rule 5): documents/** and guidelines/** are the only evidence it may cite and the only bar it may apply, so without them it cannot analyse, plan, implement or review — only guess, which the evidence rule forbids. This is not a warning to work around. Tell the user to clone VivaAerobus.Generic.ApiLLM as a sibling folder of this repo (or to set VIVA_DOCS_REPO), and stop.' "$1"
+}
 
 gate_active_key() {
   [ -f "$WORK_DIR/_active" ] || return 1

@@ -13,10 +13,10 @@
 # the Coder for free. The Coder only supplies the paths and fails loud when its
 # documentary source is missing.
 #
-# It never blocks the session (the ApiLLM's `Stop` gate is deliberately NOT adopted
-# here: it would block turns that have nothing to do with a ticket). What blocks in
-# this repo is the PHASE, not the answer — phase 1 does not close without the
-# "DOCS-ANCHOR:" marker (lib-gate.sh).
+# This hook itself never blocks: it measures. What blocks is docs-gate.sh (Stop),
+# adopted from the ApiLLM by owner's decision on 2026-09-22 — measuring proved not to
+# be enough there, and the same reasoning applies here. On top of that, phase 1 does
+# not close without the "DOCS-ANCHOR:" marker (lib-gate.sh).
 #
 # Env:
 #   VIVA_DOCS_REPO / VIVA_CODE_REPO / VIVA_CODE_BRANCH — forwarded to sync-check.sh
@@ -50,12 +50,13 @@ OUT="$(bash "$CHECK")"
 if command -v python3 >/dev/null 2>&1; then
   printf '%s' "$OUT" | python3 -c '
 import json, re, sys
-CODER = ("ENFORCED HERE (Coder): this repo does NOT run the ApiLLM\u0027s Stop gate — what blocks is the "
-         "PHASE, not the answer. Phase 1 does not close without a line at column 0 "
-         "\"DOCS-ANCHOR: <sha> FRESH\" or \"DOCS-ANCHOR: <sha> STALE <n> commits — <how it was handled>\" "
-         "in work/<KEY>/phase-01-contrast.md (CLAUDE.md, Work artifacts). And this repo NEVER writes "
-         "documents/** itself: the sync runs through the ApiLLM doc-sync pipeline and is published from "
-         "that repo (rule 2).")
+CODER = ("ENFORCED HERE (Coder), two layers: (1) the Stop gate (.claude/hooks/docs-gate.sh, a wrapper "
+         "over the ApiLLM\u0027s sync-gate.sh) REFUSES to let this turn end while the anchor is behind "
+         "origin/master — deciding the sync is out of scope only wastes an attempt; (2) phase 1 does not "
+         "close without a line at column 0 \"DOCS-ANCHOR: <sha> FRESH\" or \"DOCS-ANCHOR: <sha> STALE <n> "
+         "commits — <how it was handled>\" in work/<KEY>/phase-01-contrast.md (CLAUDE.md, Work artifacts). "
+         "The sync itself runs through the ApiLLM doc-sync subagent and is published from that repo: this "
+         "one never writes documents/** by hand (rule 2).")
 try:
     d = json.load(sys.stdin)
     hso = d.get("hookSpecificOutput") or {}

@@ -5,7 +5,8 @@
 > 1. **Sync first**: run step 1 of `../VivaAerobus.Generic.ApiLLM/CLAUDE.md`
 >    (`llm/SYNC.md`). If the docs end up/are stale, reason from the code and **say so explicitly**
 >    in the output. The drift is measured for you on every prompt
->    (`.claude/hooks/docs-sync.sh`, a thin wrapper over the ApiLLM's own `sync-check.sh`), but
+>    (`.claude/hooks/docs-sync.sh`) and the `Stop` gate (`.claude/hooks/docs-gate.sh`) will not let
+>    a turn end while the docs are behind — both thin wrappers over the ApiLLM's own hooks. But
 >    **seeing it is not recording it**: this phase does not close until its artifact carries the
 >    `DOCS-ANCHOR:` line (§1.0).
 > 2. Locate the code via `documents/concepts/_catalog.md` → the concept doc →
