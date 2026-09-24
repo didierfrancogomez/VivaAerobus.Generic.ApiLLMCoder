@@ -153,7 +153,7 @@ Un ticket es **candidato elegible** solo si cumple **todas**:
    |---|---|---|
    | **Ezy** (`EzyWebwerkstaden`) | Marcin Nowak, Piotr Wędzicha, Piotr Wieliński, Henrik (Adolfsson), Mujeeb (Ahmad) | Developers (análisis técnico, review, implementación) |
    | **Tech And Solve** | Luis Guillermo Galindo, Didier, Gabriel, Daniel (Llano), Eric (De la Nuez, ya no está), Sebastián (ya no está) | Developers (implementación) |
-   | **Viva Aerobus (VB)** | Héctor Rodríguez Cervantes (aparece en Jira como `hectorcervantes`), Luis Alejandro (Alex), Belem (Maldonado), Adrián (Valdez), Víctor, Arturo (Garza), Edgar Gallegos, Nathaly Arias, Mauricio Fernández | Negocio (redactan tickets, deciden reglas) — **no descarta** |
+   | **Viva Aerobus (VB)** | Héctor Rodríguez Cervantes (aparece en Jira como `hectorcervantes`), Luis Alejandro (Alex), Belem (Maldonado), Adrián (Valdez), Víctor, Arturo (Garza), Edgar Gallegos, Nathaly Arias, Mauricio Fernández, Hugo Ricardo Cuevas Torre | Negocio (redactan tickets, deciden reglas) — **no descarta** |
 
    Si el assignee no aparece en esta tabla y no puedes clasificarlo con certeza, **pregunta al
    usuario** — no lo clasifiques por intuición.
