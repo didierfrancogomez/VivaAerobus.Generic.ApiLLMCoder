@@ -1,0 +1,17 @@
+{
+  "name": "viva-evidence-screenshots",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Playwright (installed Chrome, no bundled browsers) to navigate a site and capture evidence screenshots",
+  "scripts": {
+    "shot": "node shot.mjs",
+    "session": "node save-session.mjs",
+    "admin": "node admin-portal.mjs"
+  },
+  "devDependencies": {
+    "newman": "^6.2.2",
+    "newman-reporter-htmlextra": "^1.23.1",
+    "playwright-core": "1.63.0"
+  }
+}
