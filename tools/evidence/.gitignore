@@ -1,0 +1,8 @@
+# npm i recreates it from package-lock.json
+node_modules/
+# live Admin Portal session (cookies + localStorage token) written by save-session.mjs / admin-portal.mjs --login
+.auth/
+# raw newman runs (report.html, run.json): full bodies and tokens — only the PNGs leave this folder
+.runs/
+# per-ticket inputs (cards.json, shot flows): they belong to the ticket's evidence folder, not here
+api*-*.json
