@@ -5,22 +5,48 @@ Translated from the team's engineering KB (§10.2, §10.2.1, §10.2.2, §10.2.2.
 §25.18), where these rules were adopted as team decisions between 2026-08-04 and 2026-09-25. The scripts
 that produce every image described here are in this folder ([`README.md`](README.md)).
 
-## 0. What a ticket delivers
+## 0. What a ticket delivers — the evidence package
 
-| Piece | Where | What it is for |
-|---|---|---|
-| **Classic** main `.md` + one `captures/TCnn.md` per test case | `docs/evidencias/{TICKET}/` | The complete, reproducible proof: full `curl`, full request, full response (§1) |
-| **Story** `{TICKET}-evidence-story.md` | same folder | The one people read: each test case told as a short story with images (§3) |
-| **One card per test case** `captures/test-cases/*.png` | same folder | **What gets attached to Jira** (§4) |
-| newman captures `captures/postman/*.png` | same folder | Run summary + one image per request + cards (§3.4) |
-| Admin Portal captures `captures/admin-portal/*.png` | same folder | Only when the ticket requires or mentions the Admin Portal (§2) |
-| `PR-template.md` + a `PR DOC` section in the main `.md` | same folder | The filled PR template, ready to paste (§1.4) |
+The package is built in Phase 7 §7.4 and audited against the ticket's matrix in §7.5
+([`process/phase-07-testing.md`](../../process/phase-07-testing.md)). It lives in the task's folder of
+this repo and is versioned with it:
+
+```
+work/<KEY>/evidence/
+├── classic/                       full format — complete request + response (§1)
+│   ├── <KEY>-evidences.md         main file: TC table, findings, Admin Portal line, PR DOC
+│   ├── TC01.md …                  ONE self-contained file per matrix TC
+│   └── raw/                       step-by-step raw captures the cards render from (optional)
+├── story/
+│   └── <KEY>-evidence-story.md    story mode (§3) — images linked as ../captures/…
+├── captures/
+│   ├── test-cases/                ONE card per TC — what gets attached to Jira (§4)
+│   ├── postman/                   newman summary + one image per request (§3.4)
+│   └── admin-portal/              only when the ticket requires or mentions the Admin Portal (§2)
+├── cards.json                     evidence-card.mjs spec
+└── PR-template.md                 the filled PR template, ready to paste (§1.4)
+```
 
 The classic proves, the story explains, the card is what gets attached. EZY asked for something more
 readable; the classic is not dropped.
 
-`docs/evidencias/{TICKET}/` lives **outside every repo**, next to the sibling repos. It is never committed:
-raw evidence carries tokens, test-user credentials and booking data.
+### 0.1 Credentials are masked before anything is versioned
+This repo is **public**. The package keeps everything as captured — requests, responses, headers, PNR,
+names — **except credential values**, which become `<redacted>`: bearer/basic tokens, JWTs,
+password/secret/token/api-key values, cookies, card number and CVV. The field or header stays where it
+was, so the capture still shows its complete shape.
+
+```bash
+python tools/evidence/mask-credentials.py work/<KEY>/evidence                    # mask in place
+python tools/evidence/mask-credentials.py --from <capture dir> --to work/<KEY>/evidence   # copy + mask
+python tools/evidence/mask-credentials.py --check --git work/<KEY>               # what save-progress runs
+```
+
+`tools/save-progress.sh` runs the check on every save and **commits nothing** while a credential is still
+in clear. Images are not scanned: the cards, newman captures and Admin Portal captures come out of these
+scripts already redacted (§2.5, §3.4, §4); a manual capture (e.g. the Postman app) must show
+`Authorization` masked before it goes into `captures/`. Raw newman runs (`tools/evidence/.runs/`) and the
+Admin Portal session (`tools/evidence/.auth/`) never enter the package.
 
 ## 1. Classic format — `curl + request + response` per test case
 
@@ -31,9 +57,8 @@ raw evidence carries tokens, test-user credentials and booking data.
 **Canonical paths**
 - **Postman collection (source of the flow):** `docs/Postman/VivaAerobus.Generic.API.postman_collection.json` in the API repo.
 - **Local environment:** `docs/Postman/VB.Generic.Api_Local.postman_environment.json` in the API repo.
-- **Evidence folder:** `docs/evidencias/{TICKET}/` — one main `.md` + a `captures/` subfolder with **one
-  self-contained file per TC** + the `{TICKET}-evidence-story.md` and its images in `captures/postman/`
-  and `captures/admin-portal/`.
+- **Evidence folder:** `work/<KEY>/evidence/classic/` — one main `<KEY>-evidences.md` + **one
+  self-contained file per TC** (`TC01.md` …); the story and the images live beside it (§0).
 
 ### 1.1 What each test case contains
 1. A reproducible **`curl`** of the step (or of every step, when the TC chains requests).
@@ -53,7 +78,8 @@ raw evidence carries tokens, test-user credentials and booking data.
   **every** sent header, query params and the **whole body**) **and** the **full Response** (HTTP status,
   **every** response header and the **whole body**). Truncating, summarising or eliding with `...`,
   `// rest`, `[snip]`, or showing only "the proving fragment", is **forbidden**. If the body is long it is
-  still documented whole — in `captures/` when it does not fit comfortably in the `.md`.
+  still documented whole — in `classic/raw/` when it does not fit comfortably in the TC file. The one
+  exception is a credential value, masked as `<redacted>` (§0.1): the header or field stays.
 - ⚠️ **Windows / local:** `curl.exe` does not connect to `localhost:9050`, so the real call runs with
   `Invoke-RestMethod` — **but the `curl` is documented anyway** (the canonical format for Jira and other
   environments).
@@ -68,7 +94,7 @@ raw evidence carries tokens, test-user credentials and booking data.
   goes into a **findings / notes** section of the main `.md`, **never** as a new TC. Each matrix TC carries
   **everything needed to show it passed** (full curl + request + proving response + verdict).
 - 🔴 **ONE capture file per TC** — not two (no `tcX_request.json` + `tcX_response.txt`). Each TC = **one
-  self-contained file** (`captures/{TCid}.md`) holding, in order: the **COMPLETE bash `curl`**
+  self-contained file** (`classic/{TCid}.md`) holding, in order: the **COMPLETE bash `curl`**
   (copy-paste runnable: method, absolute URL, **every** header, whole body), the **Request** and the
   **full Response** (status + headers + whole body). It can be pasted into Jira as is.
 - 🔴 **Prerequisites live in the SAME TC file.** Seed / preparation steps (login, create / clone / mutate
@@ -131,7 +157,7 @@ node admin-portal.mjs --login
 node admin-portal.mjs --check          # ✔ = saved token still valid, with the minutes left (never printed)
 # 2) capture: section + channel + block (--node) + outlined property (--field), both by JSON PATH
 node admin-portal.mjs --section Services --channel mobile --node train --field train.enabled --color green --caption auto \
-  --out "<evidence-root>/API-XXXX/captures/admin-portal/API-XXXX_AdminPortal_mobile_Services_train.enabled_Solution.png"
+  --out "../../work/API-XXXX/evidence/captures/admin-portal/API-XXXX_AdminPortal_mobile_Services_train.enabled_Solution.png"
 ```
 - `--node` / `--field` take the property's **JSON path**, the same one used in psql without `root.`:
   `train`, `train.enabled`, `hotelPlus.enabledForSelectedCurrencies`; array items go by index
@@ -154,7 +180,7 @@ node admin-portal.mjs --section Services --channel mobile --node train --field t
   are downloaded. If `node_modules` is missing: `npm i` in this folder.
 
 ### 2.4 Where and how it is named
-`docs/evidencias/{TICKET}/captures/admin-portal/{TICKET}_AdminPortal_{channel}_{Section}_{property}_{Issue|Solution|Before|After}.png`,
+`work/{TICKET}/evidence/captures/admin-portal/{TICKET}_AdminPortal_{channel}_{Section}_{property}_{Issue|Solution|Before|After}.png`,
 linked from the *Prerequisites* section of the TC file, with **an English caption that states the
 environment**: `Local Admin Portal (localhost:9507 → local vbgeneric_adminportal)`.
 
@@ -163,7 +189,7 @@ environment**: `Local Admin Portal (localhost:9507 → local vbgeneric_adminport
 - 🔴 **Credentials never leave the login window.** `--login` opens a visible Chrome; a person logs in and
   closes it. No credential is written into a script, a doc, an evidence file or a repo, and the scripts
   refuse to fill password fields. `.auth/admin-portal.json` holds the **live token**: it is git-ignored and
-  never copied into `docs/evidencias/`, Jira or a repo.
+  never copied into `work/<KEY>/evidence/`, Jira or a repo.
 - ⚠️ **Review every capture before attaching it.** Sections such as `Payments`, `SystemSettings`, `Doters`
   or `Notifications` can show keys or internal endpoints; cover them with `--mask` or crop the area. It goes
   to Jira and the client reads it.
@@ -223,7 +249,7 @@ config**. First confirm the API is listening (`Get-NetTCPConnection -LocalPort 9
 ## 3. Second format: the ticket's **story** (`{TICKET}-evidence-story.md`) (2026-09-24)
 
 > **Decision.** On top of the classic format of §1 (unchanged and still mandatory), every ticket delivers
-> **one file** `docs/evidencias/{TICKET}/{TICKET}-evidence-story.md`, **in English**, that tells each test
+> **one file** `work/{TICKET}/evidence/story/{TICKET}-evidence-story.md`, **in English**, that tells each test
 > case as a story: what I prepared, what I ran, what came back and **where the change shows**, with the
 > captures interleaved. The trigger was EZY: after many tickets in production they said the classic `.md`
 > is hard to read. The answer is not to drop the classic — it is the complete, reproducible proof — but to
@@ -278,7 +304,7 @@ what changed, and what the evidence below is going to show.>
 
 To prove this, I first set `<setting>` to `<value>` in the Admin Portal, so the API reads … :
 
-![Admin Portal — <menu path> = <value>](captures/admin-portal/API-XXXX_AdminPortal_web_<Section>_<property>_Solution.png)
+![Admin Portal — <menu path> = <value>](../captures/admin-portal/API-XXXX_AdminPortal_web_<Section>_<property>_Solution.png)
 
 Then I called `<endpoint>` for PNR `ABC123`:
 
@@ -297,9 +323,9 @@ It answers `200 SUCCESS`, and this is the part that matters:
 
 Here you can see the change: `status` is now `Blocked`, where `master` returns `Open` for the same booking.
 
-![TC01 — check-in blocked by the booking rule](captures/postman/API-XXXX_TC01_05_check-in-blocked-by-the-booking-rule_card.png)
+![TC01 — check-in blocked by the booking rule](../captures/postman/API-XXXX_TC01_05_check-in-blocked-by-the-booking-rule_card.png)
 
-Full request and response: [captures/TC01.md](captures/TC01.md) · newman run: `captures/postman/API-XXXX_TC01_00_newman-summary.png`
+Full request and response: [classic/TC01.md](../classic/TC01.md) · newman run: `../captures/postman/API-XXXX_TC01_00_newman-summary.png`
 
 **PNR:** `ABC123` / `Lastname`
 ````
@@ -343,7 +369,7 @@ cd tools/evidence
 node newman-evidence.mjs --collection "<the ticket's collection or the canonical one>" \
   --environment "<api-repo>/docs/Postman/VB.Generic.Api_Local.postman_environment.json" \
   --folder "TC01 …" --ticket API-XXXX --tc TC01 --cards cards.json \
-  --out "<evidence-root>/API-XXXX/captures/postman"
+  --out "../../work/API-XXXX/evidence/captures/postman"
 # re-render without running again (e.g. to fix a card):
 node newman-evidence.mjs --from-run .runs/API-XXXX/<stamp>-TC01 --ticket API-XXXX --tc TC01 --cards cards.json --out <same dir>
 ```
@@ -406,8 +432,8 @@ so the card **never drifts** from the capture: if a number changes, it is becaus
 
 ```bash
 cd tools/evidence
-node evidence-card.mjs --spec "<evidence-root>/API-XXXX/cards.json" \
-  --out "<evidence-root>/API-XXXX/captures/test-cases"
+node evidence-card.mjs --spec "../../work/API-XXXX/evidence/cards.json" \
+  --out "../../work/API-XXXX/evidence/captures/test-cases"
 ```
 
 At a glance the card shows: the **PASS/FAIL** verdict, **Expected/Got**, the **Admin Portal configuration

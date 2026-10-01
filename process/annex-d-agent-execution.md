@@ -79,7 +79,7 @@ versioning rests on; check it before every save.
 | 4 Gate | Classify doubts, write questions with options + recommendation, the verdict | **Answering** the questions (PO/tech lead/QA/vendor owner) |
 | 5 Plan | Options, trade-offs, the specific plans, guideline IDs | Design review with tech lead; QA sign-off on the test plan; `HUMAN-GATE-OK` (risky) |
 | 6 Implement | Code, tests, checkpoints commits, `Ezy` style on the task's lines (`code-style.sh apply`) | Approving any deviation from the plan (§6.4.3) |
-| 7 Test | Unit/integration suites, evidence, `TESTS: GREEN` | Manual exploratory on external systems; QA execution; PO functional acceptance |
+| 7 Test | Unit/integration suites, `TESTS: GREEN`, the evidence package in `work/<KEY>/evidence/` with credentials masked (§7.4), its audit via `tc-evidence-auditor` (§7.5) | Manual exploratory on external systems; QA execution; PO functional acceptance; deciding on each audit gap the agent surfaces |
 | 8 Release | Draft runbook, release notes, config lists | Provisioning environments; creating dashboards/alerts; approvals; the window |
 | 9 Pre-review | Full self-review, squash, REVIEW-CODE.md, the four marker lines, `code-style.sh verify` | Nothing — this phase is fully the agent's |
 | 10 PR | Draft PR title/description; after approval: push + PR + respond to review | **`PUSH-APPROVED`** (the user's explicit yes, §10.0); the review itself; merge decision |
@@ -102,6 +102,11 @@ live in `../VivaAerobus.Generic.ApiLLM/.claude/agents/` and are **not duplicated
 belong to the repo that owns the knowledge and the sync pipeline (rule 2). They are reachable from
 a Coder session because `.claude/settings.json` pre-authorizes the sibling directory — that, and
 nothing else, is the mechanism.
+
+One subagent lives HERE: **`tc-evidence-auditor`** (`.claude/agents/tc-evidence-auditor.md`,
+Phase 7 §7.5). It audits this repo's own artifacts — the evidence package in `work/<KEY>/evidence/`
+against the ticket's matrix — not the system's knowledge, so it belongs to the Coder. It is read-only;
+the parent writes `phase-07-evidence-audit.md` from its report.
 
 Consequences the agent must not discover the hard way:
 

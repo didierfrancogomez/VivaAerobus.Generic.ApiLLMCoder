@@ -94,12 +94,66 @@ the PR** (a PS1 runner or Postman collection does not satisfy it) → **PS1 runn
 6. **Test in a production-like environment** (staging) with realistic data and configuration
    before calling it done.
 
-## 7.4 Handoff to QA
+## 7.4 Evidence package — the three formats, in `work/<KEY>/evidence/`
+
+Every matrix row that ran in this phase leaves its proof in the task's folder, in the three formats of
+[`tools/evidence/EVIDENCE-FORMAT.md`](../tools/evidence/EVIDENCE-FORMAT.md) (layout in its §0):
+
+1. **Classic — full format** (`evidence/classic/`): ONE self-contained `TCnn.md` per matrix row with
+   the complete `curl`, request and response (status, headers, whole body), plus the main
+   `<KEY>-evidences.md` (TC table, findings outside the matrix, the Admin Portal line, `PR DOC`).
+   EVIDENCE-FORMAT §1.
+2. **Story mode** (`evidence/story/<KEY>-evidence-story.md`): each TC told in the first person, with
+   the complete `curl`, the response trimmed to the proving fields and the images interleaved.
+   EVIDENCE-FORMAT §3.
+3. **Captures** (`evidence/captures/`): ONE card per TC in `test-cases/` (what gets attached to Jira),
+   the newman captures in `postman/`, and the Admin Portal captures in `admin-portal/` when the ticket
+   requires or mentions it — otherwise the classic main file says
+   `Admin Portal: not applicable — the change reads no Admin Portal configuration.` EVIDENCE-FORMAT
+   §2, §3.4, §4.
+
+Rules:
+- **The matrix rules the package.** Exactly the ticket's matrix rows — read the current ones with
+  `python tools/jira-sync/jira_sync.py matrix <KEY> --state` — in their order, with the same verdict
+  in the three formats. No extra TCs (findings go to the classic main file). A row retired by a ticket
+  comment or justified n/a in the plan is listed as such, never dropped silently.
+- **One run, three formats.** All three come out of the SAME execution (EVIDENCE-FORMAT §3.4): a
+  second run makes the numbers disagree. On rework, `tools/new-run.sh <KEY>` archives the whole
+  `evidence/` with the run, and the next run captures its own.
+- **Credentials are masked before anything is saved** — this repo is public:
+  `python tools/evidence/mask-credentials.py work/<KEY>/evidence` (or `--from <dir> --to
+  work/<KEY>/evidence` when the capture was written elsewhere). Only credential values become
+  `<redacted>`; requests, responses, headers, PNR and names stay as captured. `tools/save-progress.sh`
+  re-checks and commits nothing while a credential is in clear. The scan reads text only: review every
+  image by eye before it goes into `captures/`.
+- `Issue`/`Solution` pairs (PRC-104) keep those names inside the package (`…_Issue.png` /
+  `…_Solution.png`, and the two halves of the `TCnn.md` file).
+
+## 7.5 Evidence audit — every matrix row backed by the package (informational)
+
+With the package complete, launch the committed subagent **`tc-evidence-auditor`**
+([`.claude/agents/tc-evidence-auditor.md`](../.claude/agents/tc-evidence-auditor.md)) and paste into its
+prompt: the KEY, the docs-sync status (the `DOCS-ANCHOR:` line of phase 1), the evidence rule, and this
+section as the process to follow. It is read-only and adversarial: it reads the current matrix,
+`phase-05-plan.md` (`S-NN`), `phase-07-testing.md` and the whole package, and returns one verdict per
+matrix row — ✅ BACKED / ⚠️ WEAK / ❌ MISSING / ➖ N/A — each citing the files and lines that prove it.
+
+Record its report in `work/<KEY>/phase-07-evidence-audit.md` (skeleton:
+`process/_templates/evidence-audit.md`), ending with ONE summary line at column 0:
+`EVIDENCE-AUDIT: COMPLETE` (every row ✅ or ➖) or `EVIDENCE-AUDIT: GAPS <n>`.
+
+**Informational — it does not block** push or PR (team decision, 2026-10-01): no hook reads that line.
+Every ⚠️/❌ row is surfaced to the user in the phase answer, with the cheapest fix (re-run the case,
+render the missing card, align the story) or the reason to accept it, and the user's decision is
+recorded in the audit's *Gaps* table. Phase 9's completeness audit (§9.2, item 6) reads the same file.
+
+## 7.6 Handoff to QA
 
 1. Deliver **test notes**: what changed, what to test, how to reproduce, test users/data, what did
    NOT change but is worth looking at (the impact radius), known risks, assumptions pending
    validation.
-2. Attach evidence: screenshots, video of the flow, sample responses.
+2. Attach evidence: the one-card-per-TC images of the package (`evidence/captures/test-cases/`, §7.4)
+   — plus a video of the flow when a UI is involved.
 3. Define the flag's state during QA testing.
 4. Fix cycle: every defect found → fix → **add a test that covers it** → re-test the complete
    flow, not just the defect.
@@ -114,10 +168,13 @@ at column 0 (the hooks read it: without it, `git push` / `gh pr create` stay blo
 the evidence: the full-suite run output (command + summary), the **numbered scenario matrix**
 (`S-NN → test executed → result`, every plan row present), and the impact-radius regression
 notes. ⚠️ The line is written **only after the FULL suite actually ran green** — recording it
-without running the suite is falsifying the gate. On rework, `tools/new-run.sh <KEY>` archived
-the previous artifact into `validation/run-NNN/` — never edit an archived run.
+without running the suite is falsifying the gate. Beside it: the evidence package
+`work/<KEY>/evidence/` (§7.4, credentials masked) and its audit `work/<KEY>/phase-07-evidence-audit.md`
+(§7.5). On rework, `tools/new-run.sh <KEY>` archived the previous artifacts, package included, into
+`validation/run-NNN/` — never edit an archived run.
 
 **Exit criterion:** all acceptance criteria verified with evidence, impact radius tested, CI
-green, zero open high-severity defects.
+green, zero open high-severity defects, the evidence package complete and audited (every gap of the
+audit surfaced to the user).
 
 **Next:** [Phase 8 — Release preparation](phase-08-release.md)

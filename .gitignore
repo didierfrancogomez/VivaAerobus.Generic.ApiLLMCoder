@@ -22,6 +22,10 @@ work/*/ticket-snapshots/
 work/*/config-backups/
 work/*/evidence/upload/
 work/*/evidence/screenshots/
+# - the Phase 7 evidence package (work/<KEY>/evidence/classic|story|captures) IS versioned, with
+#   credential values masked: tools/save-progress.sh refuses to commit while one is in clear
+#   (tools/evidence/mask-credentials.py --check). Raw newman runs and the Admin Portal session
+#   never leave tools/evidence/ (see tools/evidence/.gitignore).
 # - ticket-watch hook state (lock + last background run log; the per-task cache lives in
 #   work/*/ticket-snapshots/, already ignored above)
 work/.ticket-watch/

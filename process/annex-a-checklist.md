@@ -73,6 +73,12 @@
 - [ ] Migration applied and reverted; performance with realistic volume
 - [ ] Full suite and CI green; tested in a production-like environment
 - [ ] `phase-07-testing.md` recorded with `TESTS: GREEN` + the suite output
+- [ ] Evidence package in `work/<KEY>/evidence/` from ONE run (§7.4): classic (one `TCnn.md` per
+      matrix row), story, one card per TC, Admin Portal captures or the "not applicable" line
+- [ ] Credentials masked (`mask-credentials.py --check --git work/<KEY>` clean); every image
+      reviewed by eye
+- [ ] `tc-evidence-auditor` run; `phase-07-evidence-audit.md` recorded; every ⚠️/❌ row surfaced to
+      the user (§7.5)
 - [ ] Test notes handed to QA; QA/PO acceptance
 
 **Prepare the release** (Phase 8)
@@ -101,13 +107,13 @@
 - [ ] Publication summary presented to the user; **user approved** (`PUSH-APPROVED` exists —
       created by the user, never by the agent)
 - [ ] Title with the ticket key; description with the full template
-- [ ] Evidence attached; bidirectional links
+- [ ] Evidence attached (`deliver --evidence work/<KEY>/evidence/captures/test-cases`); bidirectional links
 - [ ] Correct reviewers; non-obvious parts self-annotated
 - [ ] CI green before requesting review
 - [ ] Comments answered; review re-requested when done
 
 **Rework** (if comments/QA return)
-- [ ] `tools/new-run.sh <KEY>` archived the previous evidence (gates re-closed)
+- [ ] `tools/new-run.sh <KEY>` archived the previous evidence package and its audit (gates re-closed)
 - [ ] Minimal fix only; every comment resolved; re-approved and re-delivered
 
 **Post-merge** (Phase 11)
