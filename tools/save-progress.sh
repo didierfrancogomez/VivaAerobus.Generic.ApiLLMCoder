@@ -17,6 +17,19 @@ for a in "$@"; do [ "$a" = "--no-push" ] && PUSH=0; done
 DIR="$ROOT/work/$KEY"
 [ -d "$DIR" ] || { echo "⛔ no work/$KEY — nothing to save"; exit 2; }
 
+# This repo is public and work/<KEY>/evidence/ is versioned: nothing is committed while a
+# credential value is still in clear (Phase 7 §7.4). Fail closed when the scan cannot run.
+PY=""
+for c in python3 python; do
+  if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sys' >/dev/null 2>&1; then PY="$c"; break; fi
+done
+[ -n "$PY" ] || { echo "⛔ python not found — the credential scan cannot run, so work/$KEY is not versioned"; exit 2; }
+if ! (cd "$ROOT" && "$PY" tools/evidence/mask-credentials.py --check --git "work/$KEY"); then
+  echo "⛔ work/$KEY holds unmasked credentials and this repo is PUBLIC — nothing was committed."
+  echo "   Mask them, review the diff, then re-run:  $PY tools/evidence/mask-credentials.py work/$KEY"
+  exit 3
+fi
+
 bash "$ROOT/tools/update-index.sh"
 git -C "$ROOT" add -- "work/$KEY" work/README.md 2>/dev/null || true
 if git -C "$ROOT" diff --cached --quiet -- "work/$KEY" work/README.md; then

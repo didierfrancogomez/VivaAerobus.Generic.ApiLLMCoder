@@ -96,9 +96,15 @@ evidence, comments, changes labels/status/assignee):
 
 ```bash
 python tools/jira-sync/jira_sync.py deliver <KEY> \
-    --evidence <dir with Issue/Solution pairs + collection JSON> \
+    --evidence work/<KEY>/evidence/captures/test-cases \
     --pr <n> --comment "<which S-NN ran where; evidence attached>" --dry-run
 ```
+
+`--evidence` uploads every file at the **top level** of that folder (not its subfolders): the
+one-card-per-TC images of the package (Phase 7 §7.4). When the ticket updated Postman, copy the
+ticket's collection JSON there too. Each TC section of `evidence/story/<KEY>-evidence-story.md` is the
+text for that row's Evidence cell. Never point `--evidence` at `work/<KEY>/evidence/` itself — it
+would upload the classic files instead of the cards.
 
 **Always `--dry-run` first and show the user the plan**; re-run without it only after they agree.
 `deliver` performs, in order: evidence → comment → **adds `TestComplete` keeping `TestCaseReady`**

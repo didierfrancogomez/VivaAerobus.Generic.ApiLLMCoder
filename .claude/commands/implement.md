@@ -27,7 +27,9 @@ Hard sequence:
 2. **Stage B — phases 5–11** only with `VERDICT: ✅` (the hooks enforce it): numbered plan
    (`_templates/plan.md`, guideline IDs cited) → implement on `feature/$ARGUMENTS/<kebab-slug>`
    (PRC-102) → `Ezy` code style on the task's lines (`tools/code-style.sh $ARGUMENTS apply`,
-   Phase 6 §6.5) → Phase 7 ladder until every `S-NN` is green (`TESTS: GREEN`) → release prep →
+   Phase 6 §6.5) → Phase 7 ladder until every `S-NN` is green (`TESTS: GREEN`) → evidence package
+   in `work/$ARGUMENTS/evidence/` (classic + story + one card per TC, credentials masked, §7.4) →
+   its audit by the `tc-evidence-auditor` subagent, every gap surfaced to the user (§7.5) → release prep →
    Phase 9 (squash to ONE commit, run `process/REVIEW-CODE.md`, the four markers, SHA-anchored,
    `tools/code-style.sh $ARGUMENTS verify` → `CODE-STYLE: VERIFIED` on that same commit)
    → Phase 10.
