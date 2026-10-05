@@ -45,7 +45,11 @@
   comments, every attachment format with date and author), `ready` (Definition-of-Ready gate),
   `deliver` (evidence → matrix `Execution Result` per row via `--results` → comment with the PR
   link → `TestComplete` → *In review* → unassign for QA; `--dry-run` first, always). Output is
-  UTF-8 regardless of the console code page.
+  UTF-8 regardless of the console code page. Evidence capture lives in
+  [`tools/evidence/`](tools/evidence/): the evidence format
+  ([`EVIDENCE-FORMAT.md`](tools/evidence/EVIDENCE-FORMAT.md) — classic per-TC capture, story file,
+  one card per test case, Admin Portal screenshots) and the scripts that produce it (newman runs,
+  evidence cards, Admin Portal captures).
 - **Enforcement:** [`.claude/`](.claude/) — hooks that fast-forward this repo **and the ApiLLM**
   to `origin/main` before every prompt, inject the docs-vs-code drift and the gate state, **refuse
   to end a turn while `documents/**` are behind the code** (`Stop` gate), and deny code-repo
