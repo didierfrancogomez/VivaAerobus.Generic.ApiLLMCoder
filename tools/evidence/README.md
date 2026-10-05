@@ -17,25 +17,32 @@ npm i
 | `admin-portal.mjs` | Admin Portal: section + channel + block (`--node`) + outlined properties (`--field`) + banner (`--caption auto`) → PNG, reusing the saved session. |
 | `shot.mjs` | Any URL → PNG. Single shot from flags, or a multi-step flow from a JSON file (`--steps`) — see [`examples/`](examples/). |
 | `dump-paths.mjs` | Lists the Admin Portal editor's `data-schemapath` values under a prefix (to find the real path of a tabbed array item). |
+| `mask-credentials.py` | Masks credential values (tokens, JWTs, passwords, secrets, API keys, cookies, card data) in an evidence folder — in place, while copying (`--from`/`--to`), or as a check (`--check`, exit 1 if anything is in clear). Everything else stays as captured. |
 | `save-session.mjs` | Opens a visible Chrome; **you** log in and close the window; cookies + localStorage are saved. |
 
 ```bash
 node newman-evidence.mjs --collection "<collection.json>" --environment "<env.json>" --folder "TC01 …" \
   --ticket API-XXXX --tc TC01 --cards cards.json \
-  --out "<evidence-root>/API-XXXX/captures/postman"
+  --out "../../work/API-XXXX/evidence/captures/postman"
 node newman-evidence.mjs --from-run .runs/API-XXXX/<stamp>-TC01 --ticket API-XXXX --tc TC01 --cards cards.json --out <dir>
 
-node evidence-card.mjs --spec "<evidence-root>/API-XXXX/cards.json" --out "<evidence-root>/API-XXXX/captures/test-cases"
-python run2capture.py .runs/API-XXXX/<stamp>-TC01/run.json "<request name>" "<evidence-root>/API-XXXX/raw/TC01/08-step.md"
+node evidence-card.mjs --spec "../../work/API-XXXX/evidence/cards.json" --out "../../work/API-XXXX/evidence/captures/test-cases"
+python run2capture.py .runs/API-XXXX/<stamp>-TC01/run.json "<request name>" "../../work/API-XXXX/evidence/classic/raw/TC01/08-step.md"
 
 node admin-portal.mjs --login
 node admin-portal.mjs --check
 node admin-portal.mjs --section Services --channel mobile --node train --field train.enabled --color green --caption auto \
-  --out "<evidence-root>/API-XXXX/captures/admin-portal/API-XXXX_AdminPortal_mobile_Services_train.enabled_Solution.png"
+  --out "../../work/API-XXXX/evidence/captures/admin-portal/API-XXXX_AdminPortal_mobile_Services_train.enabled_Solution.png"
 ```
 
-`<evidence-root>` is the local evidence folder (`docs/evidencias/` next to the sibling repos). It is **not**
-part of this repo: raw evidence carries tokens, test-user credentials and booking data.
+Every output goes into the task's evidence package, `work/<KEY>/evidence/` (layout in
+[`EVIDENCE-FORMAT.md`](EVIDENCE-FORMAT.md) §0). It is versioned and this repo is public, so credential
+values are masked before anything is saved:
+
+```bash
+python mask-credentials.py ../../work/API-XXXX/evidence            # mask in place
+python mask-credentials.py --check --git ../../work/API-XXXX        # what tools/save-progress.sh runs
+```
 
 `newman-evidence.mjs --cards`:
 ```json

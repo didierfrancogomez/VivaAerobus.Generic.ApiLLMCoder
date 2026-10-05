@@ -7,5 +7,5 @@
   { "click": "[data-schemapath='root.cardPayment.banks.1'] >> text=6 >> nth=0" },
   { "wait": 1500 },
   { "highlight": "Disabled For Ssrs", "color": "green" },
-  { "screenshot": "<evidence-root>/API-XXXX/captures/admin-portal/API-XXXX_AdminPortal_web_Payments_cardPayment_criteria_disabledForSsrs_Solution.png", "selector": "[data-schemapath='root.cardPayment.banks.1.installments.1']" }
+  { "screenshot": "../../work/API-XXXX/evidence/captures/admin-portal/API-XXXX_AdminPortal_web_Payments_cardPayment_criteria_disabledForSsrs_Solution.png", "selector": "[data-schemapath='root.cardPayment.banks.1.installments.1']" }
 ]

@@ -6,3 +6,6 @@ node_modules/
 .runs/
 # per-ticket inputs (cards.json, shot flows): they belong to the ticket's evidence folder, not here
 api*-*.json
+
+# python bytecode from running the scripts
+__pycache__/
