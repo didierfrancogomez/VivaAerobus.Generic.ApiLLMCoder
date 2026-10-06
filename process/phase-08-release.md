@@ -13,7 +13,9 @@
    deploy service B → backfill → turn on the flag → verification.
 2. **Migration and backfill scripts** reviewed, idempotent, resumable, with progress logging and
    tested against a copy of real data.
-3. **Configuration and secrets provisioned in every environment** before the deployment (a missing
+3. **`ApiKey` rule (`CLAUDE.md` rule 7):** non-Development transforms carry only the `ApiUrl`; each
+   `ApiKey` exists as a secret in AWS Secrets Manager for those environments, listed in the runbook.
+   **Configuration and secrets provisioned in every environment** before the deployment (a missing
    variable in prod is the most common cause of a failed deployment).
 4. **Feature flag created in all environments**, turned off, with an owner and with a documented
    activation criterion.

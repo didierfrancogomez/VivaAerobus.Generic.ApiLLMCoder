@@ -69,6 +69,9 @@
    reuse** an existing one (`documents/cross-module/error-codes.md`).
 5. **Validation at the edge and on the server** always, not only in the frontend.
 6. **No secrets in the code.** No credentials, tokens, internal URLs, real customer data.
+   Config transforms: the `ApiKey` goes **only** in the Development transform; every other
+   environment's transform carries just the `ApiUrl`, and the `ApiKey` is added as a secret in AWS
+   Secrets Manager (`CLAUDE.md` rule 7).
 7. **Instrument while implementing:** the logs, metrics and traces from the observability plan are
    part of the change, not an extra.
 8. **Idempotency and retries** in everything that is an asynchronous process, job, webhook or

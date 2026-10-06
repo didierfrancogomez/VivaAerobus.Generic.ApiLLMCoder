@@ -9,7 +9,7 @@
 
 ---
 
-## ⚠️ NON-NEGOTIABLE — The six rules that never break
+## ⚠️ NON-NEGOTIABLE — The seven rules that never break
 
 1. **Analysis before code, always.** Phases 0–4 are completed BEFORE writing a single line. The
    Phase 4 gate decides: open hard blockers → **STOP and ask**; verdict ✅ and zero blockers →
@@ -65,6 +65,10 @@
    MCP (`.mcp.json`, read-only tools pre-allowed) and is 100% read-only. `hooks/ticket-picker-route.sh`
    recognises these prompts and injects the rule. Choosing a ticket does not start Phase 0 —
    `/implement <KEY>` does, when the developer decides.
+7. **GOLDEN RULE — `ApiKey` only in the Development transform.** An integration's `ApiKey` is
+   included only in the Development config transform. Every other environment's transform carries
+   only the `ApiUrl`; the `ApiKey` is provisioned as a secret in AWS Secrets Manager. Never commit
+   an `ApiKey` to a non-Development transform (Phase 6 §6.3, Phase 8, `REVIEW-CODE.md`).
 
 ---
 
