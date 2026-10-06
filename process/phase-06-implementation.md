@@ -62,6 +62,11 @@
    duplicated logic in the code you touch: replace it with the existing method, or extract one
    shared method and point all callers at it. Duplicating on purpose needs a written reason in the
    plan's Deviations section.
+   **Logic lives in the method that owns it (golden rule 9):** never wrap a call to a shared
+   method in a condition that changes what it should return (e.g. a points-booking / Manage-flow
+   `if` around `CurrencyProvider.GetCurrencyContext`) — move the decision inside the method. When
+   you change what a shared method decides, go through every caller and check what it passes
+   (flags such as `isPointsBooking`), as the plan's "Callers reviewed" list says.
 3. **Clear names over comments.** Comment only the non-obvious *why* and unusual decisions with
    their reason.
 4. **Explicit error handling:** no swallowing exceptions, no generic catches, useful messages,

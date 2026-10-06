@@ -30,10 +30,11 @@
     in the comments) and answers with a ranking table + the discarded ones. Read-only. Needs the
     `atlassian` MCP (declared in [`.mcp.json`](.mcp.json)): once per developer, `claude` here →
     `/mcp` → `atlassian` → *Authenticate*.
-- **The orchestrator:** [`CLAUDE.md`](CLAUDE.md) — pipeline, gates, repo layout, the six
+- **The orchestrator:** [`CLAUDE.md`](CLAUDE.md) — pipeline, gates, repo layout, the nine
   non-negotiable rules (analysis first, no system docs here, evidence first, never a stale
   `main`, the ApiLLM guidelines govern HOW code is written, one answer path for "which ticket
-  next?").
+  next?", `ApiKey` only in the Development transform, no features toggled in constructors, logic
+  lives in the shared method that owns it).
 - **The process:** [`process/`](process/) — one file per phase + the methodology
   (`ANALYZE-TASK`, `change-playbook`, `REVIEW-CODE`) + annexes (daily checklist, hotfix route,
   team adoption guide, agent execution map) + `_templates/`.

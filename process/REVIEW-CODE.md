@@ -78,6 +78,11 @@ Drive from `../VivaAerobus.Generic.ApiLLM/documents/cross-module/dependency-map.
   duplicating it. Check the diff for logic that re-implements an existing method, and for an
   existing method that is used in some places but inlined in others the change touches (❗ — blocks
   approval). The finding names the existing symbol that should be called.
+- Logic in the method that owns it (golden rule 9): a condition around a call to a shared
+  method/provider that changes what it should compute — instead of living inside it — is ❗
+  (blocks approval); so is a change to what a shared method decides without every other caller
+  reviewed (what each passes, e.g. `isPointsBooking` into `CurrencyProvider.GetCurrencyContext`).
+  The finding names the method and the callers left unchecked.
 - DI registrations correct; domain model conventions respected.
 
 ## Phase 5 — Style (`STY`)

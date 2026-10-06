@@ -24,6 +24,11 @@ when the implementation is mechanical and boring.
    the plan applies it in every place that needs it (e.g. `SsrPriceOptimizationNote.CreateFromDotRezApiNote`
    also for passenger-SSR), not only the one the ticket names. New code that duplicates an
    existing symbol must be justified in `## Deviations (approved)`.
+   **Place the logic where it is owned (golden rule 9):** if the change alters what a shared
+   method/provider decides (e.g. `CurrencyProvider.GetCurrencyContext`), the plan puts the logic
+   inside that method — not around one call site — and lists **every** caller with what it
+   passes and whether that argument stays correct ("Callers reviewed: `path/File.cs :: Symbol` —
+   ok/changed").
 
 1. **Generate at least two solution options.** If you can only think of one, you haven't thought;
    you've remembered.

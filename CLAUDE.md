@@ -9,7 +9,7 @@
 
 ---
 
-## ⚠️ NON-NEGOTIABLE — The eight rules that never break
+## ⚠️ NON-NEGOTIABLE — The nine rules that never break
 
 1. **Analysis before code, always.** Phases 0–4 are completed BEFORE writing a single line. The
    Phase 4 gate decides: open hard blockers → **STOP and ask**; verdict ✅ and zero blockers →
@@ -75,6 +75,15 @@
    through configuration, and the release notes must state that the feature has to be enabled
    (where and with which value). Never ship "on" hidden inside code (Phase 6 §6.3, Phase 8,
    `REVIEW-CODE.md`).
+9. **GOLDEN RULE — logic lives in the shared method that owns it, and every caller is reviewed.**
+   A condition that decides what a shared provider/service computes goes **inside** that method,
+   never wrapped around one call site. Changing what a shared method decides means reviewing
+   **every** other caller and what it passes. Origin (PR review, Piotr Wędzicha):
+   `UpdateBasketHandler` special-cased points bookings in the Manage flow around
+   `Concepts/_Shared/Currencies/CurrencyProvider.cs :: CurrencyProvider.GetCurrencyContext` —
+   the fix belongs in `GetCurrencyContext`, and the `bool isPointsBooking` each of its other
+   callers passes (16 handlers) had to be re-checked (Phase 5 §5.1, Phase 6 §6.3,
+   `REVIEW-CODE.md` Phase 4).
 
 ---
 
