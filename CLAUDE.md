@@ -9,7 +9,7 @@
 
 ---
 
-## ⚠️ NON-NEGOTIABLE — The nine rules that never break
+## ⚠️ NON-NEGOTIABLE — The ten rules that never break
 
 1. **Analysis before code, always.** Phases 0–4 are completed BEFORE writing a single line. The
    Phase 4 gate decides: open hard blockers → **STOP and ask**; verdict ✅ and zero blockers →
@@ -84,6 +84,19 @@
    the fix belongs in `GetCurrencyContext`, and the `bool isPointsBooking` each of its other
    callers passes (16 handlers) had to be re-checked (Phase 5 §5.1, Phase 6 §6.3,
    `REVIEW-CODE.md` Phase 4).
+10. **GOLDEN RULE — wire the minimum, where it already lives.** (a) Config is read once where it
+   is already in hand — the handler (`HandlerBase` `_adminConfig`) or the top builder that holds
+   the part — and the specific part is passed down; output builders/mappers never inject
+   `IAdminConfiguration`. (b) A trivial decision over one config part is a method on that config
+   class, taking only the value it needs — not a new "Provider" (name a class for what it does).
+   (c) A dotRez GraphQL selection requests only the fields the code reads. (d) The PR description
+   is the code repo's `.github/pull_request_template.md` filled in truthfully: compliance/privacy
+   ticked when true, performance per real impact, and the *Admin Portal changes* section ticked
+   with the path whenever the diff touches the AP schema or seed. Origin: PR #2522 (API-1920,
+   review by Piotr W.) — `IsMaskedFor` moved from `TripEmailMaskingProvider` into
+   `MaskContactDataConfig`, `MaskContactData` passed down from the handlers / `AccountOutputBuilder`,
+   `RetrieveBookingsRequest` cut to the read fields; the same corrections recur in #2484, #2487,
+   #2467 (Phase 6 §6.3, Phase 10 §10.1, `REVIEW-CODE.md` Phases 3, 4, 8).
 
 ---
 

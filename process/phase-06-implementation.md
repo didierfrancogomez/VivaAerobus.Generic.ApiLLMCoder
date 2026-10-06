@@ -92,6 +92,12 @@
     (`CLAUDE.md` rule 8).
 11. **Walk the impact matrix and touch every point** that requires a change; check them off as
     they are resolved.
+12. **Wire the minimum, where it already lives** (`CLAUDE.md` rule 10): read a config part once
+    where it is already in hand (the handler's `_adminConfig`, or the top builder that holds it)
+    and pass that part down — never inject `IAdminConfiguration` into an output builder/mapper; a
+    trivial decision over one config part is a method on that config class taking only the value
+    it needs, not a new Provider; a dotRez GraphQL selection adds only fields the code reads —
+    for each new field, name the code that reads it.
 
 ## 6.4 Deviation control (critical)
 

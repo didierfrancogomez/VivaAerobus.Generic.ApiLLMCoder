@@ -20,7 +20,10 @@
 4. **Feature flag created in all environments**, turned off, with an owner and with a documented
    activation criterion. The release notes state explicitly that the feature **must be enabled**
    and where (config key and value) — activation is never baked into a constructor or default
-   (`CLAUDE.md` rule 8).
+   (`CLAUDE.md` rule 8). The Admin Portal seeder only inserts missing documents, so an
+   environment whose settings document already exists reads the **code default** for a new key,
+   not the seed value: the enable step is listed for **every** deployed environment (PR #2522 —
+   `documents/_meta/flags-and-rules.md`).
 5. **Deployment order across repositories** and compatibility verified for every intermediate step
    (the system must work *between* deployments, not only at the end).
 6. **External dependencies ready**: the other team already deployed, the provider already enabled

@@ -69,6 +69,8 @@ Drive from `../VivaAerobus.Generic.ApiLLM/documents/cross-module/dependency-map.
 - Config parts / flags the code now depends on — do they exist in every environment
   (`../VivaAerobus.Generic.ApiLLM/documents/_meta/flags-and-rules.md`)?
 - In-flight sessions: are baskets/bookings created before the change still processable after it?
+- dotRez GraphQL selections (golden rule 10c): every field the diff adds to a `*Request.cs`
+  selection is read by the code; a field nobody reads is ❗ (blocks). The finding names the field.
 
 ## Phase 4 — Design & architecture (`ARC`)
 
@@ -83,6 +85,10 @@ Drive from `../VivaAerobus.Generic.ApiLLM/documents/cross-module/dependency-map.
   (blocks approval); so is a change to what a shared method decides without every other caller
   reviewed (what each passes, e.g. `isPointsBooking` into `CurrencyProvider.GetCurrencyContext`).
   The finding names the method and the callers left unchecked.
+- Wire the minimum (golden rule 10a/b): `IAdminConfiguration` injected into an output
+  builder/mapper while the handler or a caller already holds the config part is ❗ (blocks) — pass
+  the part down; a new Provider/service whose only job is a trivial decision over one config part
+  is ❗ (blocks) — make it a method on that config class taking only the value it needs.
 - DI registrations correct; domain model conventions respected.
 
 ## Phase 5 — Style (`STY`)
@@ -107,6 +113,11 @@ Drive from `../VivaAerobus.Generic.ApiLLM/documents/cross-module/dependency-map.
 
 - Commit/PR hygiene, release notes when applicable, kill switch (config/flag) for risky changes,
   no leftover debug artifacts.
+- PR description vs the code repo's `.github/pull_request_template.md` (golden rule 10d): every
+  section present; compliance/privacy ticked when true; the performance box matches the real
+  impact; a diff touching `Concepts/Admin/ConfigPart/Schema/**` or `Assets/Seed/AdminPortal/**`
+  has *Admin Portal changes in this PR* ticked with the setting's path; a ticked release-impact
+  box has its action block filled. A missing or contradictory item is ❗ (blocks).
 
 ---
 

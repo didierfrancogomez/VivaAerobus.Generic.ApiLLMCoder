@@ -27,7 +27,11 @@ Nothing leaves the machine without the user's explicit yes. Before any `git push
    `API-<n> <gitmoji> <imperative, concrete description>` — never GitHub's branch-derived
    default (`Feature/api 1662/sp change services` is the documented anti-pattern). It should be
    understandable without opening the PR. The code repo's own
-   `.github/pull_request_template.md`, when present, is authoritative over the template below.
+   `.github/pull_request_template.md`, when present, is authoritative over the template below —
+   fill **every** section of it truthfully before `gh pr create` (`CLAUDE.md` rule 10d):
+   compliance/privacy ticked when true, the performance box per real impact, and *Admin Portal
+   changes in this PR* ticked with the setting's path whenever the diff touches the AP schema or
+   seed (`REVIEW-CODE.md` Phase 8 checks it).
 2. **Description using the template:**
 
 ```markdown
