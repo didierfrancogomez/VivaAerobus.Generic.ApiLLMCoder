@@ -81,7 +81,10 @@
    texts, configuration for all environments, shared types, generated code. (The system
    documentation in `documents/**` is NOT touched here — the ApiLLM pipeline updates it in
    Phase 11.)
-10. **Feature flag off by default** and verify that **both paths** (on and off) work.
+10. **Feature flag off by default** and verify that **both paths** (on and off) work. Never
+    enable a feature through a constructor or an initializer (`Enabled = true`): the code default
+    stays off, activation is configuration, and the release notes say it must be enabled
+    (`CLAUDE.md` rule 8).
 11. **Walk the impact matrix and touch every point** that requires a change; check them off as
     they are resolved.
 

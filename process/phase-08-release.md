@@ -18,7 +18,9 @@
    **Configuration and secrets provisioned in every environment** before the deployment (a missing
    variable in prod is the most common cause of a failed deployment).
 4. **Feature flag created in all environments**, turned off, with an owner and with a documented
-   activation criterion.
+   activation criterion. The release notes state explicitly that the feature **must be enabled**
+   and where (config key and value) — activation is never baked into a constructor or default
+   (`CLAUDE.md` rule 8).
 5. **Deployment order across repositories** and compatibility verified for every intermediate step
    (the system must work *between* deployments, not only at the end).
 6. **External dependencies ready**: the other team already deployed, the provider already enabled

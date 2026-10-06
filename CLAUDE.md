@@ -9,7 +9,7 @@
 
 ---
 
-## ⚠️ NON-NEGOTIABLE — The seven rules that never break
+## ⚠️ NON-NEGOTIABLE — The eight rules that never break
 
 1. **Analysis before code, always.** Phases 0–4 are completed BEFORE writing a single line. The
    Phase 4 gate decides: open hard blockers → **STOP and ask**; verdict ✅ and zero blockers →
@@ -69,6 +69,12 @@
    included only in the Development config transform. Every other environment's transform carries
    only the `ApiUrl`; the `ApiKey` is provisioned as a secret in AWS Secrets Manager. Never commit
    an `ApiKey` to a non-Development transform (Phase 6 §6.3, Phase 8, `REVIEW-CODE.md`).
+8. **GOLDEN RULE — features are never toggled through constructors or hardcoded defaults.** A
+   feature/config flag is not switched on by a constructor (e.g. `Enabled = true` in a config
+   class constructor) or an initializer. Its default in code stays off/neutral; it is enabled
+   through configuration, and the release notes must state that the feature has to be enabled
+   (where and with which value). Never ship "on" hidden inside code (Phase 6 §6.3, Phase 8,
+   `REVIEW-CODE.md`).
 
 ---
 

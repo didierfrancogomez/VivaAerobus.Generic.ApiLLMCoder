@@ -93,6 +93,7 @@ Drive from `../VivaAerobus.Generic.ApiLLM/documents/cross-module/dependency-map.
 
 ## Phase 7 — Security & data
 
+- A feature switched on from a constructor or initializer (`Enabled = true`) is ❗ (blocks): remove it, keep the default off, and require the release notes to say the feature must be enabled.
 - Config transforms: an `ApiKey` outside the Development transform is ❗ (blocks) — other environments carry only the `ApiUrl`, the key lives in AWS Secrets Manager.
 - Inputs validated; no hardcoded secrets; PII handled per `../VivaAerobus.Generic.ApiLLM/documents/operations/security.md`;
   logs don't leak sensitive data.
