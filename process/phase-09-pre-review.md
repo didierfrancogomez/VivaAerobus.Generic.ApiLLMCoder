@@ -53,8 +53,10 @@ as if it belonged to someone else you feel no affection for.
    no acceptance criterion without code, no `P-NN` without its diff, no impact-matrix row
    without its change or its explicit discard, no `S-NN` scenario without its Phase 7 evidence
    row or written non-applicability. The audit is row-by-row over the numbered lists, not an
-   impression. Only when the three agree is `COMPLETENESS: VERIFIED` recorded (the hooks demand
-   it before push).
+   impression. Read `phase-07-evidence-audit.md` beside them (Phase 7 §7.5): every ⚠️/❌ matrix
+   row there is listed in this report with its fix or the user's recorded acceptance — informational,
+   it does not decide the marker on its own. Only when the three agree is `COMPLETENESS: VERIFIED`
+   recorded (the hooks demand it before push).
 
 ## 9.3 Final technical hygiene
 

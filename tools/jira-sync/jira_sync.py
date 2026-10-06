@@ -2822,10 +2822,12 @@ def matrix_command(argv: list[str]) -> None:
     `matrix` — test-matrix drift since the accepted baseline (read-only unless --accept).
 
         python jira_sync.py matrix API-9999 [--accept | --init] [--json] [--work-dir DIR]
+        python jira_sync.py matrix API-9999 --state
 
     Exit code: 0 no findings · 3 findings · 1 error. --accept saves the current state as the new
     baseline (do it once the changes are handled: plan updated, subtask aligned); --init does so
-    only when no baseline exists yet (intake).
+    only when no baseline exists yet (intake). --state prints the CURRENT matrix (description +
+    evidence subtask rows) as JSON and exits — what the Phase 7 evidence audit reads.
     """
     import argparse
     parser = argparse.ArgumentParser(prog="jira_sync.py matrix")
@@ -2833,9 +2835,14 @@ def matrix_command(argv: list[str]) -> None:
     parser.add_argument("--accept", action="store_true", help="save the current matrix as the baseline")
     parser.add_argument("--init", action="store_true", help="save a baseline only if none exists")
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--state", action="store_true", help="print the current matrix rows as JSON (read-only)")
     parser.add_argument("--work-dir", help="the Coder's work/ dir (default: ../../work beside this script)")
     args = parser.parse_args(argv)
     key = args.issue_key.upper()
+
+    if args.state:
+        print(json.dumps(fetch_matrix_state(key), ensure_ascii=False, indent=2))
+        sys.exit(0)
 
     snap = _snapshots_dir(_coder_work_dir(args.work_dir), key)
     base = _load_baseline(snap)

@@ -74,7 +74,10 @@ Drive from `../VivaAerobus.Generic.ApiLLM/documents/cross-module/dependency-map.
 
 - Code in the right place per `../VivaAerobus.Generic.ApiLLM/documents/architecture/conventions.md` and `patterns-cqrs.md`
   (thin controller, handler per feature, builders, validators registered).
-- Reuses what exists (shared services, constants, helpers) instead of duplicating it.
+- Reuses what exists (shared services, constants, helpers, factories, builders) instead of
+  duplicating it. Check the diff for logic that re-implements an existing method, and for an
+  existing method that is used in some places but inlined in others the change touches (❗ — blocks
+  approval). The finding names the existing symbol that should be called.
 - DI registrations correct; domain model conventions respected.
 
 ## Phase 5 — Style (`STY`)

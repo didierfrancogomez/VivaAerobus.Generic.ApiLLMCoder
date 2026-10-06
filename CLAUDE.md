@@ -52,7 +52,9 @@
    (Phase 5) cites the rule IDs it must honor, the implementation (Phase 6) complies with them,
    and the Phase 9 gate (`process/REVIEW-CODE.md`) applies that same bar — a 🐛/❗ finding blocks. If
    a guideline seems wrong or outdated, that is a finding for the ApiLLM owner, not a license to
-   deviate.
+   deviate. **Code reuse is part of that bar**: before writing anything new, search the code for
+   what already exists (factories, helpers, builders, constants) and reuse it in every place that
+   needs it, not just the first (Phase 5 §5.1, Phase 6 §6.3, `REVIEW-CODE.md` Phase 4).
 6. **GOLDEN RULE — "which ticket can I take?" has one answer path.** Any question about which
    Jira ticket/task/activity to take, resume or develop next — or what is ready on the board, in
    whatever words — is answered **only** by the skill
@@ -124,7 +126,7 @@ relative to `../VivaAerobus.Generic.ApiLLM/`.
 | 4 Blockers (GATE) | [`process/phase-04-blockers.md`](process/phase-04-blockers.md) | Question rules from `process/ANALYZE-TASK.md` §Phase 5 |
 | 5 Planning | [`process/phase-05-planning.md`](process/phase-05-planning.md) | `process/change-playbook.md` steps 1–6 + `guidelines/**` |
 | 6 Implementation | [`process/phase-06-implementation.md`](process/phase-06-implementation.md) | `guidelines/**` (normative) + `documents/architecture/conventions.md`, `patterns-cqrs.md` + **the `Ezy` code style as its last step** (`tools/code-style.sh <KEY> apply`, §6.5) |
-| 7 Testing | [`process/phase-07-testing.md`](process/phase-07-testing.md) | `documents/operations/testing.md` |
+| 7 Testing | [`process/phase-07-testing.md`](process/phase-07-testing.md) | `documents/operations/testing.md` + **the evidence package** in `work/<KEY>/evidence/` per [`tools/evidence/EVIDENCE-FORMAT.md`](tools/evidence/EVIDENCE-FORMAT.md) (§7.4) + its audit by the `tc-evidence-auditor` subagent (§7.5) |
 | 8 Release prep | [`process/phase-08-release.md`](process/phase-08-release.md) | `documents/_meta/flags-and-rules.md` (kill switch / config parts) |
 | 9 Pre-review | [`process/phase-09-pre-review.md`](process/phase-09-pre-review.md) | **`process/REVIEW-CODE.md`** — APPROVED verdict mandatory; **`tools/code-style.sh <KEY> verify`** — `CODE-STYLE: VERIFIED` mandatory (§9.5) |
 | 10 PR & review | [`process/phase-10-pr-review.md`](process/phase-10-pr-review.md) | — |
@@ -201,6 +203,7 @@ verified and phases 7 and 9 pass, the approved commit is still HEAD, **and the u
 | `phase-05-plan.md` (ends with a `## Deviations (approved)` section) | Phase 5 | **writes to the API repo** (together with everything above and verdict ✅) |
 | `phase-06-code-style.md` with `CODE-STYLE: VERIFIED` + `STYLE-SHA: <commit>` — written **only** by `tools/code-style.sh <KEY> verify` | Phase 6 §6.5 (apply) → Phase 9 §9.5 (verify) | required for push/PR — void (denied) if HEAD drifts from `STYLE-SHA` |
 | `phase-07-testing.md` with the line `TESTS: GREEN` + full-suite output | Phase 7 | required for push/PR |
+| `evidence/` (classic + story + captures, credentials masked) + `phase-07-evidence-audit.md` with `EVIDENCE-AUDIT: COMPLETE\|GAPS <n>` | Phase 7 §7.4–7.5 | informational — no gate; `tools/save-progress.sh` refuses to commit unmasked credentials |
 | `phase-09-pre-review.md` with `REVIEW-CODE: APPROVED`, `VALIDATED-SHA: <commit>`, `COMPLETENESS: VERIFIED`, `DEVIATIONS: NONE\|APPROVED-AND-DOCUMENTED` | Phase 9 | **`git push` / `gh pr create`** — void (denied) if the code-repo HEAD drifts from `VALIDATED-SHA` |
 | `PUSH-APPROVED` | **human** | publication: the user's explicit approval of the push + PR (Phase 10 §10.0) |
 | `HUMAN-GATE-REQUIRED` (*risky* level) → `HUMAN-GATE-OK` | human | the human creates it by hand (`touch`); **the agent is forbidden from creating it** |
@@ -248,11 +251,13 @@ approval** (`PUSH-APPROVED`, Phase 10 §10.0).
   §D.2); `ticket-picker-route.sh` routes "which ticket next?" prompts to
   `.claude/skills/jira-next-ticket-picker` (rule 6), whose Jira access is the `atlassian` MCP
   declared in `.mcp.json`. Test suites: `.claude/hooks/tests/run-tests.sh` + `ticket-watch-tests.sh` — run them after any hook change.
+  `agents/tc-evidence-auditor.md` = the one subagent that lives here (Phase 7 §7.5, read-only).
 - `tools/` = automation: `new-task.sh` (scaffold + intake), `new-run.sh` (immutable runs),
   `code-style.sh` (the team's `Ezy` code style via `jb cleanupcode`, scoped to the task's lines —
   Phase 6 §6.5 `apply`, Phase 9 §9.5 `verify`),
   `jira-sync/` (the Jira bridge — reads free; writes only via Phase 10 §10.1b behind the user's
-  approval). `.claude/commands/implement.md` = `/implement <KEY>`, the single entry point.
+  approval), `evidence/` (the evidence format + the capture scripts + `mask-credentials.py`).
+  `.claude/commands/implement.md` = `/implement <KEY>`, the single entry point.
 - `process/` = the mandatory process: one file per phase + the methodology
   (`ANALYZE-TASK`/`change-playbook`/`REVIEW-CODE`) + `_templates/`. Modified only by team decision
   (process retro, Phase 11.9) — **hook-enforced**: writes to `process/`, `CLAUDE.md` and
@@ -260,7 +265,9 @@ approval** (`PUSH-APPROVED`, Phase 10 §10.0).
   when the agreed change is done).
 - `work/` is **versioned** (progress = resumable memory; Annex D §D.3) — except human
   signatures, `_active` and ticket dumps (see `.gitignore`). Authored artifacts never contain
-  credentials; never prune `work/<KEY>/` while the ticket is open.
+  credentials; the evidence package `work/<KEY>/evidence/` is versioned with credential values
+  masked (`save-progress.sh` refuses otherwise — this repo is public); never prune `work/<KEY>/`
+  while the ticket is open.
 - Process files are written in **English**; citations to code and to the sibling repos keep their
   real names.
 - `CLAUDE.md` stays under ~200 lines: the *rules* live here; the *procedure* lives in `process/`

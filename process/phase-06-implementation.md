@@ -54,24 +54,32 @@
 1. **Respect the project's standards:** the rules in `guidelines/**` are normative; additionally
    style, automatic formatting, linter, static analysis, typing, naming conventions, folder
    structure. The pipeline must not be the first time they are run.
-2. **Clear names over comments.** Comment only the non-obvious *why* and unusual decisions with
+2. **Reuse before writing — and reuse everywhere it applies.** Before adding a method, mapper,
+   builder, constant or helper, search the code for one that already does the job and call it.
+   When an existing method (e.g. a factory such as `SsrPriceOptimizationNote.CreateFromDotRezApiNote`)
+   is already used in several places, every other place that builds the same thing — including
+   the sibling flows such as passenger-SSR — must use it too instead of inlining the logic. Found
+   duplicated logic in the code you touch: replace it with the existing method, or extract one
+   shared method and point all callers at it. Duplicating on purpose needs a written reason in the
+   plan's Deviations section.
+3. **Clear names over comments.** Comment only the non-obvious *why* and unusual decisions with
    their reason.
-3. **Explicit error handling:** no swallowing exceptions, no generic catches, useful messages,
+4. **Explicit error handling:** no swallowing exceptions, no generic catches, useful messages,
    typed errors, no exposing internal details to the client. Error codes: add new ones, **never
    reuse** an existing one (`documents/cross-module/error-codes.md`).
-4. **Validation at the edge and on the server** always, not only in the frontend.
-5. **No secrets in the code.** No credentials, tokens, internal URLs, real customer data.
-6. **Instrument while implementing:** the logs, metrics and traces from the observability plan are
+5. **Validation at the edge and on the server** always, not only in the frontend.
+6. **No secrets in the code.** No credentials, tokens, internal URLs, real customer data.
+7. **Instrument while implementing:** the logs, metrics and traces from the observability plan are
    part of the change, not an extra.
-7. **Idempotency and retries** in everything that is an asynchronous process, job, webhook or
+8. **Idempotency and retries** in everything that is an asynchronous process, job, webhook or
    payment. ⚠️ In this API the enqueued side effects (insurances, child-companion, comments) fail
    invisibly in the response — design their visibility.
-8. **Update in the same change:** tests, README if the setup changes, contracts/OpenAPI, i18n
+9. **Update in the same change:** tests, README if the setup changes, contracts/OpenAPI, i18n
    texts, configuration for all environments, shared types, generated code. (The system
    documentation in `documents/**` is NOT touched here — the ApiLLM pipeline updates it in
    Phase 11.)
-9. **Feature flag off by default** and verify that **both paths** (on and off) work.
-10. **Walk the impact matrix and touch every point** that requires a change; check them off as
+10. **Feature flag off by default** and verify that **both paths** (on and off) work.
+11. **Walk the impact matrix and touch every point** that requires a change; check them off as
     they are resolved.
 
 ## 6.4 Deviation control (critical)

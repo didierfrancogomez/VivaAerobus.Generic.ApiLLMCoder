@@ -18,6 +18,13 @@ when the implementation is mechanical and boring.
 
 ## 5.1 Solution design
 
+0. **Search for reuse first.** Before designing anything new, find what the code already offers
+   (existing factories, mappers, builders, helpers, constants) and list it in the plan as
+   "Reused: `path/File.cs :: Symbol`" per step. If an existing method is used in several places,
+   the plan applies it in every place that needs it (e.g. `SsrPriceOptimizationNote.CreateFromDotRezApiNote`
+   also for passenger-SSR), not only the one the ticket names. New code that duplicates an
+   existing symbol must be justified in `## Deviations (approved)`.
+
 1. **Generate at least two solution options.** If you can only think of one, you haven't thought;
    you've remembered.
 2. **Compare with explicit trade-offs:** effort, risk, reversibility, performance,
